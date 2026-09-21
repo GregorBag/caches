@@ -1,15 +1,3 @@
-//-----------------------------------------------------------------------------
-//
-// Source code for MIPT ILab
-// Slides: https://sourceforge.net/projects/cpp-lects-rus/files/cpp-graduate/
-// Licensed after GNU GPL v3
-//
-//-----------------------------------------------------------------------------
-//
-//  Example for LRU cache in C++
-//
-//----------------------------------------------------------------------------
-
 #pragma once
 
 #include <cstddef>
@@ -32,6 +20,19 @@ template <typename T, typename KeyT = int> struct cache_t {
   std::size_t max_capacity() const { return sz_; }
   bool full() const { return (cache_.size() == sz_); }
 
+  // void move_front(KeyT key) {
+  //   auto hit = hash_.find(key);
+  //   if (hit != hash_.end()) {
+  //     auto eltit = hit->second;
+  //     cache_.splice(cache_.begin(), cache_, eltit);
+  //   }
+  // }
+
+  // void pop_back() {
+  //   hash_.erase(cache_.back().first);
+  //   cache_.pop_back();
+  // }
+
   template <typename F> bool lookup_update(KeyT key, F slow_get_page) {
     if (max_capacity() == 0)
       return false;
@@ -43,7 +44,6 @@ template <typename T, typename KeyT = int> struct cache_t {
       return true;
     }
 
-    // This key is absent, even if the cache contains other pages.
     T page = slow_get_page(key);
 
     if (full()) {

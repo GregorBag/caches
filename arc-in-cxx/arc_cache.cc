@@ -2,7 +2,7 @@
 #include <iostream>
 #include <limits>
 
-#include "cache.hpp"
+#include "arc_cache.hpp"
 
 using PageId = long long;
 using Page = long long;

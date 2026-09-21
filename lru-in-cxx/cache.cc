@@ -1,15 +1,3 @@
-//-----------------------------------------------------------------------------
-//
-// Source code for MIPT ILab
-// Slides: https://sourceforge.net/projects/cpp-lects-rus/files/cpp-graduate/
-// Licensed after GNU GPL v3
-//
-//-----------------------------------------------------------------------------
-//
-//  Example for LRU cache in C++: simple driver program
-//
-//----------------------------------------------------------------------------
-
 #include <cctype>
 #include <iostream>
 #include <limits>

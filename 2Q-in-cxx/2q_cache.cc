@@ -2,7 +2,7 @@
 #include <iostream>
 #include <limits>
 
-#include "cache.hpp"
+#include "2q_cache.hpp"
 
 using PageId = long long;
 using Page = long long;
