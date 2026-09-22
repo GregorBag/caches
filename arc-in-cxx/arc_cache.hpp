@@ -36,7 +36,7 @@ template <typename T, typename KeyT = int> struct cache_t {
   std::unordered_map<KeyT, ResidentEntry> entries_;
   std::unordered_map<KeyT, HistoryEntry> history_;
 
-  std::size_t capacity_;
+  const std::size_t capacity_;
   std::size_t p_ = 0;
 
   explicit cache_t(std::size_t capacity): capacity_(capacity) {}

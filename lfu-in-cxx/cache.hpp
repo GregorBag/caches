@@ -7,7 +7,7 @@
 namespace caches {
 
 template <typename T, typename KeyT = int> struct cache_t { 
-  std::size_t capacity_;
+  const std::size_t capacity_;
   std::size_t min_freq_ = 0;
 
   using ListIt = typename std::list<KeyT>::iterator;

@@ -28,12 +28,12 @@ template <typename T, typename KeyT = int> struct cache_t {
   std::unordered_map<KeyT, Entry> entries_;
   std::unordered_map<KeyT, ListIt> history_;
   
-  std::size_t capacity_;
+  const std::size_t capacity_;
 
   explicit cache_t(std::size_t capacity): capacity_(capacity) {}
 
-  std::size_t capacity_Ain_ = capacity_ / 4;
-  std::size_t capacity_Aout_ = capacity_ / 2;
+  const std::size_t capacity_Ain_ = capacity_ / 4;
+  const std::size_t capacity_Aout_ = capacity_ / 2;
 
   //end of data structures
 
@@ -47,7 +47,6 @@ template <typename T, typename KeyT = int> struct cache_t {
       entries_.erase(excess_key);
       a1out_.splice(a1out_.begin(), a1in_, excess_it);
       history_.emplace(excess_key, excess_it); 
-      //before if {} because capacity_Aout_ can be 0
 
       if (a1out_.size() > capacity_Aout_) {
         history_.erase(a1out_.back());
