@@ -120,7 +120,7 @@ template <typename T, typename KeyT = int> struct cache_t {
 
     } else {
       if (total_size() >= capacity_) {
-        if (total_size() == 2*capacity_) {
+        if (total_size() == 2 * capacity_) {
           history_.erase(B2_.back());
           B2_.pop_back();
         }
