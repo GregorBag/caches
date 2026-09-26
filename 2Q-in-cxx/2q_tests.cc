@@ -110,7 +110,7 @@ TEST(TwoQCacheTest, CacheHitsTest)
     {
         SCOPED_TRACE("test vector: " + ::testing::PrintToString(test.keys));
 
-        caches::cache_t<int, int> cache(test.cache_capacity);
+        caches::two_queue_cache_t<int, int> cache(test.cache_capacity);
         int hits = 0;
         for (auto key : test.keys)
         {

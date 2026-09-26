@@ -239,7 +239,7 @@ TEST(LIRSCacheTest, CacheHitsTest)
         SCOPED_TRACE("cache capacity: " + ::testing::PrintToString(test.cache_capacity));
         SCOPED_TRACE("test vector: " + ::testing::PrintToString(test.keys));
 
-        caches::cache_t<int, int> cache(test.cache_capacity);
+        caches::lirs_cache_t<int, int> cache(test.cache_capacity);
         int hits = 0;
         for (auto key : test.keys)
         {

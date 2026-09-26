@@ -7,7 +7,7 @@
 
 namespace caches {
 
-template <typename T, typename KeyT = int> struct cache_t {
+template <typename T, typename KeyT = int> class two_queue_cache_t {
   using ListIt = typename std::list<KeyT>::iterator;
 
   enum class Queue {
@@ -29,13 +29,8 @@ template <typename T, typename KeyT = int> struct cache_t {
   std::unordered_map<KeyT, ListIt> history_;
   
   const std::size_t capacity_;
-
-  explicit cache_t(std::size_t capacity): capacity_(capacity) {}
-
   const std::size_t capacity_Ain_ = capacity_ / 4;
   const std::size_t capacity_Aout_ = capacity_ / 2;
-
-  //end of data structures
 
   bool full() const { return (entries_.size() == capacity_); }
 
@@ -60,38 +55,42 @@ template <typename T, typename KeyT = int> struct cache_t {
     }
   }
 
-  template <typename F> bool lookup_update(KeyT key, F slow_get_page) {
-    if (!capacity_) return false;
+  public:
 
-    auto hit = entries_.find(key);
-    if (hit != entries_.end()) {
-      auto& entry = hit->second;
+    explicit two_queue_cache_t(std::size_t capacity): capacity_(capacity) {}
 
-      if (entry.queue == Queue::Am) {
-        am_.splice(am_.begin(), am_, entry.position);
+    template <typename F> bool lookup_update(KeyT key, F slow_get_page) {
+      if (!capacity_) return false;
+
+      auto hit = entries_.find(key);
+      if (hit != entries_.end()) {
+        auto& entry = hit->second;
+
+        if (entry.queue == Queue::Am) {
+          am_.splice(am_.begin(), am_, entry.position);
+        }
+        //if hit in A1in we do nothing
+        return true;
       }
-      //if hit in A1in we do nothing
-      return true;
-    }
 
-    T value = slow_get_page(key);
-    auto history_hit = history_.find(key);
+      T value = slow_get_page(key);
+      auto history_hit = history_.find(key);
 
-    if (history_hit != history_.end()) {
-      am_.splice(am_.begin(), a1out_, history_hit->second);
-      history_.erase(key);
-      
+      if (history_hit != history_.end()) {
+        am_.splice(am_.begin(), a1out_, history_hit->second);
+        history_.erase(key);
+        
+        occupancy_solution();
+        
+        entries_.emplace(key, Entry{value, Queue::Am, am_.begin()});
+        return false;
+      }
+
       occupancy_solution();
-      
-      entries_.emplace(key, Entry{value, Queue::Am, am_.begin()});
+      a1in_.emplace_front(key);
+      entries_.emplace(key, Entry{value, Queue::A1in, a1in_.begin()});
       return false;
     }
-
-    occupancy_solution();
-    a1in_.emplace_front(key);
-    entries_.emplace(key, Entry{value, Queue::A1in, a1in_.begin()});
-    return false;
-  }
 
 };
 

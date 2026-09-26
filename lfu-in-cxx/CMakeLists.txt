@@ -5,7 +5,7 @@ add_library(lfu_cache INTERFACE)
 target_include_directories(lfu_cache INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_compile_features(lfu_cache INTERFACE cxx_std_17)
 
-add_executable(lfu cache.cc)
+add_executable(lfu lfu_cache.cc)
 target_link_libraries(lfu PRIVATE lfu_cache)
 set_target_properties(lfu PROPERTIES CXX_EXTENSIONS OFF)
 

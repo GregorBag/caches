@@ -2,7 +2,7 @@
 #include <iostream>
 #include <limits>
 
-#include "cache.hpp"
+#include "lru_cache.hpp"
 
 using PageId = long long;
 using Page = long long;
@@ -28,7 +28,7 @@ int main() {
     return 1;
   }
 
-  caches::cache_t<Page, PageId> cache{static_cast<std::size_t>(m)};
+  caches::lru_cache_t<Page, PageId> cache{static_cast<std::size_t>(m)};
   long long hits = 0;
   for (long long i = 0; i < n; ++i) {
     PageId key;

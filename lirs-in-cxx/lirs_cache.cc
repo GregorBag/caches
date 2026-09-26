@@ -28,7 +28,7 @@ int main() {
     return 1;
   }
 
-  caches::cache_t<Page, PageId> cache{static_cast<std::size_t>(m)};
+  caches::lirs_cache_t<Page, PageId> cache{static_cast<std::size_t>(m)};
   long long hits = 0;
   for (long long i = 0; i < n; ++i) {
     PageId key;
