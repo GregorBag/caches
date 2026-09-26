@@ -50,12 +50,12 @@ template <typename T, typename KeyT = int> struct cache_t {
   void occupancy_solution(bool x_in_B2) 
   {
     if (!T1_.empty() && (T1_.size() > p_ || (x_in_B2 && T1_.size() == p_))) {
-      B1_.splice(B1_.begin(), T1_, entries_.find(T1_.back())->second.position); //лажа
+      B1_.splice(B1_.begin(), T1_, --T1_.end());
       history_.emplace(B1_.front(), HistoryEntry{HistoryQueue::B1, B1_.begin()});
       entries_.erase(B1_.front());
 
     } else {
-      B2_.splice(B2_.begin(), T2_, entries_.find(T2_.back())->second.position); //лажа
+      B2_.splice(B2_.begin(), T2_, --T2_.end());
       history_.emplace(B2_.front(), HistoryEntry{HistoryQueue::B2, B2_.begin()});
       entries_.erase(B2_.front());
     }
@@ -86,7 +86,9 @@ template <typename T, typename KeyT = int> struct cache_t {
       auto& history_entry = history_hit->second;
 
       if (history_entry.queue == HistoryQueue::B1) {
-        p_ = std::min(capacity_, p_ + std::max<std::size_t>(1, B2_.size()/B1_.size())); //delta
+        auto delta = std::max<std::size_t>(1, B2_.size()/B1_.size());
+        p_ = std::min(capacity_, p_ + delta);
+
         T2_.splice(T2_.begin(), B1_, history_entry.position);
         history_.erase(key);
 
@@ -98,6 +100,7 @@ template <typename T, typename KeyT = int> struct cache_t {
 
       auto delta = std::max<std::size_t>(1, B1_.size() / B2_.size());
       p_ = delta >= p_ ? 0 : p_ - delta;
+      
       T2_.splice(T2_.begin(), B2_, history_entry.position);
       history_.erase(key);
 
