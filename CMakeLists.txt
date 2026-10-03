@@ -3,8 +3,8 @@ project(self_cache LANGUAGES CXX)
 
 include(CTest)
 
-add_subdirectory(lru-in-cxx)
-add_subdirectory(lfu-in-cxx)
-add_subdirectory(2Q-in-cxx)
-add_subdirectory(arc-in-cxx)
-add_subdirectory(lirs-in-cxx)
+add_subdirectory(LRU)
+add_subdirectory(LFU)
+add_subdirectory(TWO-QUEUE)
+add_subdirectory(ARC)
+add_subdirectory(LIRS)
