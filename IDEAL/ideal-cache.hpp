@@ -22,11 +22,10 @@ template <typename KeyT = int> class ideal_cache_t {
   std::unordered_map<KeyT, std::list<std::size_t>> stats_;
 
 
-  void cache_delete_key(ListIt it) 
+  void cache_erase(ListIt it) 
   {
-    KeyT key = *it;
+    hash_.erase(*it);
     cache_.erase(it);
-    hash_.erase(key);
   }
 
   std::size_t next_use(KeyT key)
@@ -57,13 +56,13 @@ template <typename KeyT = int> class ideal_cache_t {
 
   public:
 
-    explicit ideal_cache_t(std::size_t capacity, std::size_t data_size, std::vector<KeyT> data): 
-      capacity_(capacity), 
-      data_size_(data_size), 
-      data_(std::move(data)) 
-      { 
-        for (std::size_t i = 0; i < data_size_; i++) stats_[data_[i]].push_back(i); 
-      }
+  explicit ideal_cache_t(std::size_t capacity, std::size_t data_size, std::vector<KeyT> data): 
+    capacity_(capacity), 
+    data_size_(data_size), 
+    data_(std::move(data)) 
+    { 
+      for (std::size_t i = 0; i < data_size_; i++) stats_[data_[i]].push_back(i); 
+    }
 
 
   std::size_t ideal_hits_check() 
@@ -81,7 +80,7 @@ template <typename KeyT = int> class ideal_cache_t {
 
       if (hit != hash_.end()) 
       {
-        cache_delete_key(hit->second);
+        cache_erase(hit->second);
         cache_insert_key(key);
 
         hits++;
@@ -90,7 +89,7 @@ template <typename KeyT = int> class ideal_cache_t {
 
       if (cache_.size() >= capacity_) 
       {
-        cache_delete_key(--cache_.end());
+        cache_erase(--cache_.end());
         cache_insert_key(key);
         continue;
       }

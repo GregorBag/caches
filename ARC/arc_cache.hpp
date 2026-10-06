@@ -57,83 +57,83 @@ template <typename T, typename KeyT = int> class arc_cache_t {
 
   public:
 
-    explicit arc_cache_t(std::size_t capacity): capacity_(capacity) {}
+  explicit arc_cache_t(std::size_t capacity): capacity_(capacity) {}
 
-    template <typename F> bool lookup_update(KeyT key, F slow_get_page) {
-      if (!capacity_) return false;
+  template <typename F> bool lookup_update(KeyT key, F slow_get_page) {
+    if (!capacity_) return false;
 
-      auto hit = entries_.find(key);
+    auto hit = entries_.find(key);
 
-      if (hit != entries_.end()) {
-        auto& entry = hit->second;
+    if (hit != entries_.end()) {
+      auto& entry = hit->second;
 
-        if (entry.queue == ResidentQueue::T1) {
-          entry.queue = ResidentQueue::T2;
-          T2_.splice(T2_.begin(), T1_, entry.position);
-          return true;
-        }
-
-        T2_.splice(T2_.begin(), T2_, entry.position);
+      if (entry.queue == ResidentQueue::T1) {
+        entry.queue = ResidentQueue::T2;
+        T2_.splice(T2_.begin(), T1_, entry.position);
         return true;
       }
 
-      T value = slow_get_page(key);
-      auto history_hit = history_.find(key);
+      T2_.splice(T2_.begin(), T2_, entry.position);
+      return true;
+    }
 
-      if (history_hit != history_.end()) {
-        auto& history_entry = history_hit->second;
+    T value = slow_get_page(key);
+    auto history_hit = history_.find(key);
 
-        if (history_entry.queue == HistoryQueue::B1) {
-          auto delta = std::max<std::size_t>(1, B2_.size()/B1_.size());
-          p_ = std::min(capacity_, p_ + delta);
+    if (history_hit != history_.end()) {
+      auto& history_entry = history_hit->second;
 
-          T2_.splice(T2_.begin(), B1_, history_entry.position);
-          history_.erase(key);
+      if (history_entry.queue == HistoryQueue::B1) {
+        auto delta = std::max<std::size_t>(1, B2_.size()/B1_.size());
+        p_ = std::min(capacity_, p_ + delta);
 
-          occupancy_solution(false);
-
-          entries_.emplace(key, ResidentEntry{value, ResidentQueue::T2, T2_.begin()});
-          return false;
-        }
-
-        auto delta = std::max<std::size_t>(1, B1_.size() / B2_.size());
-        p_ = delta >= p_ ? 0 : p_ - delta;
-        
-        T2_.splice(T2_.begin(), B2_, history_entry.position);
+        T2_.splice(T2_.begin(), B1_, history_entry.position);
         history_.erase(key);
 
-        occupancy_solution(true);
+        occupancy_solution(false);
 
         entries_.emplace(key, ResidentEntry{value, ResidentQueue::T2, T2_.begin()});
         return false;
       }
 
-      if (T1_.size() + B1_.size() >= capacity_) {
-        if (T1_.size() < capacity_) {
-          history_.erase(B1_.back());
-          B1_.pop_back();
+      auto delta = std::max<std::size_t>(1, B1_.size() / B2_.size());
+      p_ = delta >= p_ ? 0 : p_ - delta;
+      
+      T2_.splice(T2_.begin(), B2_, history_entry.position);
+      history_.erase(key);
 
-          occupancy_solution(false);
-        } else {
-          entries_.erase(T1_.back());
-          T1_.pop_back();
-        }
+      occupancy_solution(true);
 
-      } else {
-        if (total_size() >= capacity_) {
-          if (total_size() == 2 * capacity_) {
-            history_.erase(B2_.back());
-            B2_.pop_back();
-          }
-
-          occupancy_solution(false);
-        }
-      }
-
-      T1_.push_front(key);
-      entries_.emplace(key, ResidentEntry{value, ResidentQueue::T1, T1_.begin()});
+      entries_.emplace(key, ResidentEntry{value, ResidentQueue::T2, T2_.begin()});
       return false;
     }
+
+    if (T1_.size() + B1_.size() >= capacity_) {
+      if (T1_.size() < capacity_) {
+        history_.erase(B1_.back());
+        B1_.pop_back();
+
+        occupancy_solution(false);
+      } else {
+        entries_.erase(T1_.back());
+        T1_.pop_back();
+      }
+
+    } else {
+      if (total_size() >= capacity_) {
+        if (total_size() == 2 * capacity_) {
+          history_.erase(B2_.back());
+          B2_.pop_back();
+        }
+
+        occupancy_solution(false);
+      }
+    }
+
+    T1_.push_front(key);
+    entries_.emplace(key, ResidentEntry{value, ResidentQueue::T1, T1_.begin()});
+    return false;
+  }
 
 };
 
