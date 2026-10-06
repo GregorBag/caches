@@ -71,7 +71,7 @@ template <typename T, typename KeyT = int> class lirs_cache_t
     prune_stack();
   }
 
-  void front_q_retirement() 
+  void front_Q_retirement() 
   {
     KeyT victim_key = Q_.front();
 
@@ -82,6 +82,15 @@ template <typename T, typename KeyT = int> class lirs_cache_t
     Q_.pop_front();
 
     hir_size_--;
+  }
+
+  template <typename F> bool single_capacity_lookup_update(KeyT key, F slow_get_page) {
+    if (Q_map_.find(key) != Q_map_.end()) return true;
+    if (hir_size_ == 1) { Q_map_.clear(); hir_size_--; }
+    
+    Q_map_.emplace(key, QEntry{std::make_unique<T>(slow_get_page(key)), Q_.end()});
+    hir_size_++;
+    return false;
   }
 
 
@@ -97,20 +106,7 @@ template <typename T, typename KeyT = int> class lirs_cache_t
     {
       if (!capacity_) return false;
 
-      if (capacity_ == 1) 
-      {
-        //single value save in Q_map_
-        if (Q_map_.find(key) != Q_map_.end()) return true;
-
-        if (hir_size_ == 1) 
-        { 
-          Q_map_.clear(); 
-          hir_size_--;
-        }
-        Q_map_.emplace(key, QEntry{std::make_unique<T>(slow_get_page(key)), Q_.end()});
-        hir_size_++;
-        return false;
-      }
+      if (capacity_ == 1) return single_capacity_lookup_update(key, slow_get_page);
 
       auto s_hit = S_map_.find(key);
 
@@ -146,7 +142,7 @@ template <typename T, typename KeyT = int> class lirs_cache_t
         }
 
         //hit NonResHIR in S
-        if (full()) front_q_retirement();
+        if (full()) front_Q_retirement();
         entry.value = std::make_unique<T>(slow_get_page(key));
         entry.kind = Kind::LIR;
         entry.is_resident = true;
@@ -172,7 +168,7 @@ template <typename T, typename KeyT = int> class lirs_cache_t
       }
 
       //unknown hit
-      if (full()) front_q_retirement();
+      if (full()) front_Q_retirement();
 
       if (lir_size_ == lir_capacity_) 
       {
