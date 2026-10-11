@@ -4,7 +4,6 @@
 #include <cmath>
 #include <cstddef>
 #include <list>
-#include <locale>
 #include <unordered_map>
 #include <memory>
 #include <utility>
@@ -237,8 +236,6 @@ template <typename T, typename KeyT = int> class lirs_cache_t
       return;
     }
   }
-
-  
 
 };
 
