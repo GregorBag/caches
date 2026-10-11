@@ -95,7 +95,7 @@ template <typename T, typename KeyT = int> class arc_cache_t {
         T2_.splice(T2_.begin(), B1_, history_entry.position);
         history_.erase(key);
 
-        victim_key = replace(false);
+        if (full()) victim_key = replace(false);
 
         entries_.emplace(key, ResidentEntry{value, ResidentQueue::T2, T2_.begin()});
         return victim_key;
@@ -105,7 +105,7 @@ template <typename T, typename KeyT = int> class arc_cache_t {
       T2_.splice(T2_.begin(), B2_, history_entry.position);
       history_.erase(key);
 
-      victim_key = replace(true);
+      if (full()) victim_key = replace(true);
 
       entries_.emplace(key, ResidentEntry{value, ResidentQueue::T2, T2_.begin()});
       return victim_key;
@@ -114,7 +114,7 @@ template <typename T, typename KeyT = int> class arc_cache_t {
     if (T1_.size() + B1_.size() >= capacity_) {
       if (T1_.size() < capacity_) {
         erase_back_block(B1_, history_);
-        victim_key = replace(false);
+        if (full()) victim_key = replace(false);
       } else {
         victim_key = T1_.back();
         erase_back_block(T1_, entries_);
@@ -125,13 +125,27 @@ template <typename T, typename KeyT = int> class arc_cache_t {
         if (total_size() == 2 * capacity_) {
           erase_back_block(B2_, history_);
         }
-        victim_key = replace(false);
+        if (full()) victim_key = replace(false);
       }
     }
 
     T1_.push_front(key);
     entries_.emplace(key, ResidentEntry{value, ResidentQueue::T1, T1_.begin()});
     return victim_key;
+  }
+
+  void invalidate(const KeyT& key)
+  {
+    auto hit = entries_.find(key);
+    if (hit == entries_.end()) return;
+
+    auto& entry = hit->second;
+    if (entry.queue == ResidentQueue::T1)
+      T1_.erase(entry.position);
+    else
+      T2_.erase(entry.position);
+
+    entries_.erase(hit);
   }
 
 
