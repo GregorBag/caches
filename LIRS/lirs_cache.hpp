@@ -4,9 +4,11 @@
 #include <cmath>
 #include <cstddef>
 #include <list>
+#include <locale>
 #include <unordered_map>
 #include <memory>
 #include <utility>
+#include <optional>
 
 namespace caches {
 
@@ -45,14 +47,20 @@ template <typename T, typename KeyT = int> class lirs_cache_t
 
   bool full() const { return ((lir_size_ + hir_size_) == capacity_); }
 
-  template <typename F> bool single_capacity_lookup_update(KeyT key, F slow_get_page) 
+  std::optional<KeyT> single_capacity_insert(const KeyT& key, const T& value) 
   {
-    if (Q_map_.find(key) != Q_map_.end()) return true;
-    if (hir_size_ == 1) { Q_map_.clear(); hir_size_--; }
+    std::optional<KeyT> deleted_key = std::nullopt;
+    if (hir_size_ == 1) 
+    { 
+      deleted_key = Q_.front();
+      Q_.pop_front(); 
+      Q_map_.clear(); hir_size_--; 
+    }
     
-    Q_map_.emplace(key, QEntry{std::make_unique<T>(slow_get_page(key)), Q_.end()});
+    Q_.push_front(key);
+    Q_map_.emplace(key, QEntry{std::make_unique<T>(value), Q_.begin()});
     hir_size_++;
-    return false;
+    return deleted_key;
   }
 
   void prune_stack() 
@@ -81,7 +89,7 @@ template <typename T, typename KeyT = int> class lirs_cache_t
     prune_stack();
   }
 
-  void front_Q_retirement() 
+  KeyT front_Q_retirement() 
   {
     KeyT victim_key = Q_.front();
 
@@ -92,36 +100,65 @@ template <typename T, typename KeyT = int> class lirs_cache_t
     Q_.pop_front();
 
     hir_size_--;
+    return victim_key;
   }
 
   void Q_erase(ListIt it)
   {
-    Q_.erase(it);
     Q_map_.erase(*it);
+    Q_.erase(it);
   }
 
-  template <typename F> void unknown_hit_handling (KeyT key, F slow_get_page) {
-    if (full()) front_Q_retirement();
+  std::optional<KeyT> unknown_hit_insert (const KeyT& key, const T& value) 
+  {
+    std::optional<KeyT> deleted_key = std::nullopt;
+    if (full()) deleted_key = front_Q_retirement();
 
     if (lir_size_ == lir_capacity_) 
     {
       Q_.push_back(key);
-      Q_map_.emplace(key, QEntry{std::make_unique<T>(slow_get_page(key)), --Q_.end()});
+      Q_map_.emplace(key, QEntry{std::make_unique<T>(value), --Q_.end()});
 
       S_.push_front(key);
       S_map_.emplace(key, SEntry{nullptr, Kind::HIR, true, S_.begin()});
 
       hir_size_++;
-      return;
+      return deleted_key;
     } 
 
     S_.push_front(key);
-    S_map_.emplace(key, SEntry{std::make_unique<T>(slow_get_page(key)), Kind::LIR, true, S_.begin()});
+    S_map_.emplace(key, SEntry{std::make_unique<T>(value), Kind::LIR, true, S_.begin()});
 
     lir_size_++;
-    return;
+    return deleted_key;
   }
+  
+  std::optional<KeyT> insert(const KeyT& key, const T& value)
+  {
+    std::optional<KeyT> deleted_key = std::nullopt;
+    if (!capacity_) return deleted_key;
+    if (capacity_ == 1) return single_capacity_insert(key, value);
 
+    auto s_hit = S_map_.find(key);
+    if (s_hit != S_map_.end())
+    {
+      //hit NonResHir in S
+      auto& entry = s_hit->second;
+      if (full()) deleted_key = front_Q_retirement();
+
+      entry.value = std::make_unique<T>(value);
+      entry.kind = Kind::LIR;
+      entry.is_resident = true;
+      lir_size_++;
+      S_.splice(S_.begin(), S_, entry.position);
+      if (lir_size_ >= lir_capacity_) back_lir_retirement();
+      
+      return deleted_key;
+    }
+
+    //unknown hit
+    return unknown_hit_insert(key, value);
+  }
 
   public:
 
@@ -131,11 +168,33 @@ template <typename T, typename KeyT = int> class lirs_cache_t
     lir_capacity_(capacity_ - hir_capacity_) {}
 
 
-  template <typename F> bool lookup_update(KeyT key, F slow_get_page) 
+  template <typename F> bool lookup_update(KeyT key, F slow_get_page)
   {
     if (!capacity_) return false;
+    if (peek(key))
+    {
+      touch(key);
+      return true;
+    }
+    insert(key, slow_get_page(key));
+    return false;
+  }
 
-    if (capacity_ == 1) return single_capacity_lookup_update(key, slow_get_page);
+  const T* peek(const KeyT& key) const
+  {
+    auto s_hit = S_map_.find(key);
+    if (s_hit != S_map_.end() && s_hit->second.kind == Kind::LIR) 
+      return s_hit->second.value.get();
+
+    auto q_hit = Q_map_.find(key);
+    if (q_hit != Q_map_.end()) return q_hit->second.value.get();
+
+    return nullptr;
+  }
+
+  void touch(const KeyT& key)
+  {
+    if (capacity_ == 1) return;
 
     auto s_hit = S_map_.find(key);
 
@@ -146,9 +205,8 @@ template <typename T, typename KeyT = int> class lirs_cache_t
       {
         //hit LIR
         S_.splice(S_.begin(), S_, entry.position);
-
         prune_stack();
-        return true;
+        return;
       }
 
       if (entry.is_resident)
@@ -159,27 +217,12 @@ template <typename T, typename KeyT = int> class lirs_cache_t
         S_.splice(S_.begin(), S_, entry.position);
         entry.kind = Kind::LIR;
         entry.value = std::move(out_hit->second.value);
-        
-        Q_erase(out_hit->second.position);
-
         lir_size_++; hir_size_--;
 
+        Q_erase(out_hit->second.position);
         back_lir_retirement();
-
-        return true;
+        return;
       }
-
-      //hit NonResHIR in S
-      if (full()) front_Q_retirement();
-      entry.value = std::make_unique<T>(slow_get_page(key));
-      entry.kind = Kind::LIR;
-      entry.is_resident = true;
-      lir_size_++;
-
-      S_.splice(S_.begin(), S_, entry.position);
-      back_lir_retirement();
-      
-      return false;
     }
 
     auto q_hit = Q_map_.find(key);
@@ -191,14 +234,11 @@ template <typename T, typename KeyT = int> class lirs_cache_t
       Q_.splice(Q_.end(), Q_, entry.position);
       S_.push_front(key);
       S_map_.emplace(key, SEntry{nullptr, Kind::HIR, true, S_.begin()});
-
-      return true;
+      return;
     }
-
-    //unknown hit
-    unknown_hit_handling(key, slow_get_page);
-    return false;
   }
+
+  
 
 };
 
