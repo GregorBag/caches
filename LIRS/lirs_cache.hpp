@@ -44,12 +44,19 @@ template <typename T, typename KeyT = int> class lirs_cache_t
   std::unordered_map<KeyT, SEntry> S_map_; 
   std::unordered_map<KeyT, QEntry> Q_map_;
 
-  bool full() const { return ((lir_size_ + hir_size_) == capacity_); }
-
   std::optional<KeyT> evict_if_full()
   {
-    if (!full()) return std::nullopt;
-    return front_Q_retirement();
+    if (!((lir_size_ + hir_size_) == capacity_)) return std::nullopt;
+    KeyT victim_key = Q_.front();
+
+    auto s_hit = S_map_.find(victim_key);
+    if (s_hit != S_map_.end()) s_hit->second.is_resident = false;
+
+    Q_map_.erase(victim_key);
+    Q_.pop_front();
+
+    hir_size_--;
+    return victim_key;
   }
 
   void queue_push_back(const KeyT& key, std::unique_ptr<T> value)
@@ -91,7 +98,7 @@ template <typename T, typename KeyT = int> class lirs_cache_t
     }
   }
 
-  void back_lir_retirement() 
+  void demote_oldest_lir() 
   {
     KeyT victim_key = S_.back();
     auto& victim_entry = S_map_.find(victim_key)->second;
@@ -104,27 +111,7 @@ template <typename T, typename KeyT = int> class lirs_cache_t
     prune_stack();
   }
 
-  KeyT front_Q_retirement() 
-  {
-    KeyT victim_key = Q_.front();
-
-    auto s_hit = S_map_.find(victim_key);
-    if (s_hit != S_map_.end()) s_hit->second.is_resident = false;
-
-    Q_map_.erase(victim_key);
-    Q_.pop_front();
-
-    hir_size_--;
-    return victim_key;
-  }
-
-  void Q_erase(ListIt it)
-  {
-    Q_map_.erase(*it);
-    Q_.erase(it);
-  }
-
-  std::optional<KeyT> unknown_hit_insert (const KeyT& key, const T& value) 
+  std::optional<KeyT> insert_new_page (const KeyT& key, const T& value) 
   {
     std::optional<KeyT> deleted_key = evict_if_full();
 
@@ -157,13 +144,13 @@ template <typename T, typename KeyT = int> class lirs_cache_t
       auto& entry = s_hit->second;
       auto deleted_key_key = evict_if_full();
       promote_to_lir(entry, std::make_unique<T>(value));
-      if (lir_size_ >= lir_capacity_) back_lir_retirement();
+      if (lir_size_ >= lir_capacity_) demote_oldest_lir();
       
       return deleted_key;
     }
 
     //unknown hit
-    return unknown_hit_insert(key, value);
+    return insert_new_page(key, value);
   }
 
   public:
@@ -222,8 +209,9 @@ template <typename T, typename KeyT = int> class lirs_cache_t
         promote_to_lir(entry, std::move(out_hit->second.value));
         hir_size_--;
 
-        Q_erase(out_hit->second.position);
-        back_lir_retirement();
+        Q_map_.erase(*out_hit->second.position);
+        Q_.erase(out_hit->second.position);
+        demote_oldest_lir();
         return;
       }
     }
