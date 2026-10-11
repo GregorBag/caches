@@ -46,6 +46,19 @@ template <typename T, typename KeyT = int> class lirs_cache_t
 
   bool full() const { return ((lir_size_ + hir_size_) == capacity_); }
 
+  std::optional<KeyT> evict_if_full()
+  {
+    if (!full()) return std::nullopt;
+    return front_Q_retirement();
+  }
+
+  void queue_push_back(const KeyT& key, std::unique_ptr<T> value)
+  {
+    auto position = Q_.insert(Q_.end(), key);
+    Q_map_.emplace(key, QEntry{std::move(value), position});
+    ++hir_size_;
+  }
+
   std::optional<KeyT> single_capacity_insert(const KeyT& key, const T& value) 
   {
     std::optional<KeyT> deleted_key = std::nullopt;
@@ -56,9 +69,7 @@ template <typename T, typename KeyT = int> class lirs_cache_t
       Q_map_.clear(); hir_size_--; 
     }
     
-    Q_.push_front(key);
-    Q_map_.emplace(key, QEntry{std::make_unique<T>(value), Q_.begin()});
-    hir_size_++;
+    queue_push_back(key, std::make_unique<T>(value));
     return deleted_key;
   }
 
@@ -76,13 +87,9 @@ template <typename T, typename KeyT = int> class lirs_cache_t
     KeyT victim_key = S_.back();
     auto& victim_entry = S_map_.find(victim_key)->second;
 
-    Q_.emplace_back(victim_key);
-    Q_map_.emplace(victim_key, QEntry {std::move(victim_entry.value), --Q_.end()});
-    
+    queue_push_back(victim_key, std::move(victim_entry.value));
     S_map_.erase(victim_key);
     S_.pop_back();
-
-    hir_size_++;
     lir_size_--;
 
     prune_stack();
@@ -110,18 +117,14 @@ template <typename T, typename KeyT = int> class lirs_cache_t
 
   std::optional<KeyT> unknown_hit_insert (const KeyT& key, const T& value) 
   {
-    std::optional<KeyT> deleted_key = std::nullopt;
-    if (full()) deleted_key = front_Q_retirement();
+    std::optional<KeyT> deleted_key = evict_if_full();
 
     if (lir_size_ == lir_capacity_) 
     {
-      Q_.push_back(key);
-      Q_map_.emplace(key, QEntry{std::make_unique<T>(value), --Q_.end()});
-
+      queue_push_back(key, std::make_unique<T>(value));
       S_.push_front(key);
       S_map_.emplace(key, SEntry{nullptr, Kind::HIR, true, S_.begin()});
 
-      hir_size_++;
       return deleted_key;
     } 
 
@@ -143,7 +146,7 @@ template <typename T, typename KeyT = int> class lirs_cache_t
     {
       //hit NonResHir in S
       auto& entry = s_hit->second;
-      if (full()) deleted_key = front_Q_retirement();
+      auto deleted_key_key = evict_if_full();
 
       entry.value = std::make_unique<T>(value);
       entry.kind = Kind::LIR;
