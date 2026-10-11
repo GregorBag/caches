@@ -165,7 +165,7 @@ template <typename T, typename KeyT = int> class arc_cache_t {
     return false;
   }
 
-  const T* peek(const KeyT& key) const 
+  const T* peek(const KeyT& key) const
   {
     auto hit = entries_.find(key);
     if (hit != entries_.end()) return &hit->second.value;
@@ -175,17 +175,17 @@ template <typename T, typename KeyT = int> class arc_cache_t {
   void touch(const KeyT& key)
   {
     auto hit = entries_.find(key);
-    if (hit != entries_.end()) {
-      auto& entry = hit->second;
-
-      if (entry.queue == ResidentQueue::T1) {
-        entry.queue = ResidentQueue::T2;
-        T2_.splice(T2_.begin(), T1_, entry.position);
-        return;
-      }
-
-      T2_.splice(T2_.begin(), T2_, entry.position);
+    if (hit == entries_.end()) return;
+    
+    auto& entry = hit->second;
+    if (entry.queue == ResidentQueue::T1) 
+    {
+      entry.queue = ResidentQueue::T2;
+      T2_.splice(T2_.begin(), T1_, entry.position);
+      return;
     }
+
+    T2_.splice(T2_.begin(), T2_, entry.position);
   }
 
 };
