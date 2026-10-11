@@ -77,16 +77,16 @@ template <typename T, typename KeyT = int> class lirs_cache_t
 
   std::optional<KeyT> single_capacity_insert(const KeyT& key, const T& value) 
   {
-    std::optional<KeyT> deleted_key = std::nullopt;
+    std::optional<KeyT> victim_key = std::nullopt;
     if (hir_size_ == 1) 
     { 
-      deleted_key = Q_.front();
+      victim_key = Q_.front();
       Q_.pop_front(); 
       Q_map_.clear(); hir_size_--; 
     }
     
     queue_push_back(key, std::make_unique<T>(value));
-    return deleted_key;
+    return victim_key;
   }
 
   void prune_stack() 
@@ -113,7 +113,7 @@ template <typename T, typename KeyT = int> class lirs_cache_t
 
   std::optional<KeyT> insert_new_page (const KeyT& key, const T& value) 
   {
-    std::optional<KeyT> deleted_key = evict_if_full();
+    std::optional<KeyT> victim_key = evict_if_full();
 
     if (lir_size_ == lir_capacity_) 
     {
@@ -121,20 +121,20 @@ template <typename T, typename KeyT = int> class lirs_cache_t
       S_.push_front(key);
       S_map_.emplace(key, SEntry{nullptr, Kind::HIR, true, S_.begin()});
 
-      return deleted_key;
+      return victim_key;
     } 
 
     S_.push_front(key);
     S_map_.emplace(key, SEntry{std::make_unique<T>(value), Kind::LIR, true, S_.begin()});
 
     lir_size_++;
-    return deleted_key;
+    return victim_key;
   }
   
   std::optional<KeyT> insert(const KeyT& key, const T& value)
   {
-    std::optional<KeyT> deleted_key = std::nullopt;
-    if (!capacity_) return deleted_key;
+    std::optional<KeyT> victim_key = std::nullopt;
+    if (!capacity_) return victim_key;
     if (capacity_ == 1) return single_capacity_insert(key, value);
 
     auto s_hit = S_map_.find(key);
@@ -142,11 +142,11 @@ template <typename T, typename KeyT = int> class lirs_cache_t
     {
       //hit NonResHir in S
       auto& entry = s_hit->second;
-      deleted_key = evict_if_full();
+      victim_key = evict_if_full();
       promote_to_lir(entry, std::make_unique<T>(value));
       if (lir_size_ > lir_capacity_) demote_oldest_lir();
       
-      return deleted_key;
+      return victim_key;
     }
 
     //unknown hit
