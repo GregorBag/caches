@@ -142,15 +142,41 @@ template <typename T, typename KeyT = int> class lirs_cache_t
     {
       //hit NonResHir in S
       auto& entry = s_hit->second;
-      auto deleted_key_key = evict_if_full();
+      deleted_key = evict_if_full();
       promote_to_lir(entry, std::make_unique<T>(value));
-      if (lir_size_ >= lir_capacity_) demote_oldest_lir();
+      if (lir_size_ > lir_capacity_) demote_oldest_lir();
       
       return deleted_key;
     }
 
     //unknown hit
     return insert_new_page(key, value);
+  }
+
+  void invalidate(const KeyT& key)
+  {
+    auto s_hit = S_map_.find(key);
+    if (s_hit != S_map_.end())
+    {
+      const auto kind = s_hit->second.kind;
+      auto& s_entry = s_hit->second;
+      S_.erase(s_entry.position);
+      S_map_.erase(s_hit);
+      if (kind == Kind::LIR) { 
+        prune_stack();
+        --lir_size_; 
+        return; 
+      }
+    }
+
+    auto q_hit = Q_map_.find(key);
+    if (q_hit != Q_map_.end())
+    {
+      auto& q_entry = q_hit->second;
+      Q_.erase(q_entry.position);
+      Q_map_.erase(key);
+      --hir_size_;
+    }
   }
 
   public:
@@ -209,9 +235,10 @@ template <typename T, typename KeyT = int> class lirs_cache_t
         promote_to_lir(entry, std::move(out_hit->second.value));
         hir_size_--;
 
-        Q_map_.erase(*out_hit->second.position);
-        Q_.erase(out_hit->second.position);
-        demote_oldest_lir();
+        auto position = out_hit->second.position;
+        Q_map_.erase(out_hit);
+        Q_.erase(position);
+        if (lir_size_ > lir_capacity_) demote_oldest_lir();
         return;
       }
     }
@@ -225,6 +252,7 @@ template <typename T, typename KeyT = int> class lirs_cache_t
       Q_.splice(Q_.end(), Q_, entry.position);
       S_.push_front(key);
       S_map_.emplace(key, SEntry{nullptr, Kind::HIR, true, S_.begin()});
+      prune_stack();
       return;
     }
   }
