@@ -59,6 +59,15 @@ template <typename T, typename KeyT = int> class lirs_cache_t
     ++hir_size_;
   }
 
+  void promote_to_lir(SEntry& entry, std::unique_ptr<T> value)
+  {
+    entry.value = std::move(value);
+    entry.kind = Kind::LIR;
+    entry.is_resident = true;
+    ++lir_size_;
+    S_.splice(S_.begin(), S_, entry.position);
+  }
+
   std::optional<KeyT> single_capacity_insert(const KeyT& key, const T& value) 
   {
     std::optional<KeyT> deleted_key = std::nullopt;
@@ -147,12 +156,7 @@ template <typename T, typename KeyT = int> class lirs_cache_t
       //hit NonResHir in S
       auto& entry = s_hit->second;
       auto deleted_key_key = evict_if_full();
-
-      entry.value = std::make_unique<T>(value);
-      entry.kind = Kind::LIR;
-      entry.is_resident = true;
-      lir_size_++;
-      S_.splice(S_.begin(), S_, entry.position);
+      promote_to_lir(entry, std::make_unique<T>(value));
       if (lir_size_ >= lir_capacity_) back_lir_retirement();
       
       return deleted_key;
@@ -215,11 +219,8 @@ template <typename T, typename KeyT = int> class lirs_cache_t
       {
         //hit ResHIR in S
         auto out_hit = Q_map_.find(key);
-        
-        S_.splice(S_.begin(), S_, entry.position);
-        entry.kind = Kind::LIR;
-        entry.value = std::move(out_hit->second.value);
-        lir_size_++; hir_size_--;
+        promote_to_lir(entry, std::move(out_hit->second.value));
+        hir_size_--;
 
         Q_erase(out_hit->second.position);
         back_lir_retirement();
