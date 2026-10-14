@@ -9,7 +9,6 @@ namespace caches {
 
 template <typename T, typename KeyT = int> class lru_cache_t {
   std::size_t sz_;
-  // Each entry is {key, page}; most recently used entry is at the front.
   std::list<std::pair<KeyT, T>> cache_;
 
   using ListIt = typename std::list<std::pair<KeyT, T>>::iterator;

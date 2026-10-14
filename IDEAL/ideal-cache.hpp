@@ -30,10 +30,7 @@ template <typename KeyT = int> class ideal_cache_t {
 
   std::size_t next_use(KeyT key)
   {
-    if (stats_.at(key).empty())
-    {
-      return data_size_ + 1;
-    }
+    if (stats_.at(key).empty()) return data_size_ + 1;
     return stats_.at(key).front();
   }
 
@@ -42,10 +39,7 @@ template <typename KeyT = int> class ideal_cache_t {
     ListIt currentIt = cache_.begin();
     std::size_t next = next_use(key);
 
-    while (currentIt != cache_.end() && next >= next_use(*currentIt))
-    {
-      currentIt++;
-    }
+    while (currentIt != cache_.end() && next >= next_use(*currentIt)) currentIt++;
 
     auto inserted = cache_.insert(currentIt, key);
     hash_.emplace(key, inserted);
