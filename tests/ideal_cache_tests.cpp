@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <vector>
 
-#include "ideal-cache.hpp"
+import ideal_cache;
 
 TEST(IdealCacheTest, CacheHitsTest)
 {
@@ -109,7 +109,7 @@ TEST(IdealCacheTest, CacheHitsTest)
     {
         SCOPED_TRACE("test vector: " + ::testing::PrintToString(test.keys));
 
-        caches::ideal_cache_t<int> cache(test.cache_capacity, test.keys.size(), test.keys);
+        caches::ideal_cache<int> cache(test.cache_capacity, test.keys.size(), test.keys);
         auto hits = cache.ideal_hits_check();
 
         EXPECT_EQ(hits, test.hits);

@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <vector>
 
-#include "lru_cache.hpp"
+import lru_cache;
 
 TEST(LRUCacheTest, CacheHitsTest)
 {
@@ -80,7 +80,7 @@ TEST(LRUCacheTest, CacheHitsTest)
     {
         SCOPED_TRACE("test vector: " + ::testing::PrintToString(test.keys));
 
-        caches::lru_cache_t<int, int> cache(test.cache_capacity);
+        caches::lru_cache<int, int> cache(test.cache_capacity);
         int hits = 0;
         for (auto key : test.keys)
         {

@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <vector>
 
-#include "lfu_cache.hpp"
+import lfu_cache;
 
 TEST(LFUCacheTest, CacheHitsTest)
 {
@@ -108,7 +108,7 @@ TEST(LFUCacheTest, CacheHitsTest)
     {
         SCOPED_TRACE("test vector: " + ::testing::PrintToString(test.keys));
 
-        caches::lfu_cache_t<int, int> cache(test.cache_capacity);
+        caches::lfu_cache<int, int> cache(test.cache_capacity);
         int hits = 0;
         for (auto key : test.keys)
         {

@@ -1,4 +1,4 @@
-#pragma once
+module;
 
 #include <algorithm>
 #include <cmath>
@@ -8,9 +8,11 @@
 #include <utility>
 #include <vector>
 
-namespace caches {
+export module ideal_cache;
 
-template <typename KeyT = int> class ideal_cache_t {
+export namespace caches {
+
+template <typename KeyT = int> class ideal_cache {
   const std::size_t capacity_;
   const std::size_t data_size_;
   const std::vector<KeyT> data_;
@@ -50,7 +52,7 @@ template <typename KeyT = int> class ideal_cache_t {
 
   public:
 
-  explicit ideal_cache_t(std::size_t capacity, std::size_t data_size, std::vector<KeyT> data): 
+  explicit ideal_cache(std::size_t capacity, std::size_t data_size, std::vector<KeyT> data): 
     capacity_(capacity), 
     data_size_(data_size), 
     data_(std::move(data)) 
@@ -62,7 +64,6 @@ template <typename KeyT = int> class ideal_cache_t {
   std::size_t ideal_hits_check() 
   {
     if (!capacity_) return 0;
-
     std::size_t hits = 0;
 
     for (std::size_t i = 0; i < data_size_; i++) 
@@ -87,10 +88,8 @@ template <typename KeyT = int> class ideal_cache_t {
         cache_insert_key(key);
         continue;
       }
-
       cache_insert_key(key);
     }
-
     return hits;
   } 
 

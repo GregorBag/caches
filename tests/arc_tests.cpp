@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <vector>
 
-#include "arc_cache.hpp"
+import arc_cache;
 
 TEST(ARCCacheTest, CacheHitsTest)
 {
@@ -138,7 +138,7 @@ TEST(ARCCacheTest, CacheHitsTest)
     {
         SCOPED_TRACE("test vector: " + ::testing::PrintToString(test.keys));
 
-        caches::arc_cache_t<int, int> cache(test.cache_capacity);
+        caches::arc_cache<int, int> cache(test.cache_capacity);
         int hits = 0;
         for (auto key : test.keys)
         {

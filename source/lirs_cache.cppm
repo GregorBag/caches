@@ -1,4 +1,4 @@
-#pragma once
+module;
 
 #include <algorithm>
 #include <cmath>
@@ -9,9 +9,11 @@
 #include <utility>
 #include <optional>
 
-namespace caches {
+export module lirs_cache;
 
-template <typename T, typename KeyT = int> class lirs_cache_t 
+export namespace caches {
+
+template <typename T, typename KeyT = int> class lirs_cache
 {
   using ListIt = typename std::list<KeyT>::iterator;
 
@@ -181,7 +183,7 @@ template <typename T, typename KeyT = int> class lirs_cache_t
 
   public:
 
-  explicit lirs_cache_t(std::size_t capacity): 
+  explicit lirs_cache(std::size_t capacity): 
     capacity_(capacity), 
     hir_capacity_(capacity == 0 ? 0 : std::max<std::size_t>(1, capacity / 100)),
     lir_capacity_(capacity_ - hir_capacity_) {}

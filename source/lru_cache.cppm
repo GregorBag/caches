@@ -1,13 +1,15 @@
-#pragma once
+module;
 
 #include <cstddef>
 #include <list>
 #include <unordered_map>
 #include <optional>
 
-namespace caches { 
+export module lru_cache;
 
-template <typename T, typename KeyT = int> class lru_cache_t {
+export namespace caches {
+
+template <typename T, typename KeyT = int> class lru_cache {
   using ListIt = typename std::list<KeyT>::iterator;
 
   struct Entry {
@@ -47,7 +49,7 @@ template <typename T, typename KeyT = int> class lru_cache_t {
 
   public:
   
-  explicit lru_cache_t(std::size_t capacity) : capacity_(capacity) {}
+  explicit lru_cache(std::size_t capacity) : capacity_(capacity) {}
 
   template <typename F> bool lookup_update(KeyT key, F slow_get_page)
   {

@@ -1,4 +1,4 @@
-#pragma once
+module;
 
 #include <cmath>
 #include <cstddef>
@@ -6,9 +6,11 @@
 #include <unordered_map>
 #include <optional>
 
-namespace caches {
+export module two_queue_cache;
 
-template <typename T, typename KeyT = int> class two_queue_cache_t {
+export namespace caches {
+
+template <typename T, typename KeyT = int> class two_queue_cache {
   using ListIt = typename std::list<KeyT>::iterator;
 
   enum class ResidentQueue {
@@ -96,7 +98,7 @@ template <typename T, typename KeyT = int> class two_queue_cache_t {
 
   public:
 
-  explicit two_queue_cache_t(std::size_t capacity): capacity_(capacity) {}
+  explicit two_queue_cache(std::size_t capacity): capacity_(capacity) {}
 
   template <typename F> bool lookup_update(KeyT key, F slow_get_page) 
   {

@@ -1,13 +1,15 @@
-#pragma once
+module;
 
 #include <cstddef>
 #include <list>
 #include <unordered_map>
 #include <optional>
 
-namespace caches {
+export module lfu_cache;
 
-template <typename T, typename KeyT = int> class lfu_cache_t { 
+export namespace caches {
+
+template <typename T, typename KeyT = int> class lfu_cache { 
   const std::size_t capacity_;
   std::size_t min_freq_ = 0;
 
@@ -79,7 +81,7 @@ template <typename T, typename KeyT = int> class lfu_cache_t {
 
   public:
 
-  explicit lfu_cache_t(std::size_t capacity): capacity_(capacity) {}
+  explicit lfu_cache(std::size_t capacity): capacity_(capacity) {}
 
   template <typename F> bool lookup_update(KeyT key, F slow_get_page) 
   {

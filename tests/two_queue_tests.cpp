@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <vector>
 
-#include "2q_cache.hpp"
+import two_queue_cache;
 
 TEST(TwoQCacheTest, CacheHitsTest)
 {
@@ -110,7 +110,7 @@ TEST(TwoQCacheTest, CacheHitsTest)
     {
         SCOPED_TRACE("test vector: " + ::testing::PrintToString(test.keys));
 
-        caches::two_queue_cache_t<int, int> cache(test.cache_capacity);
+        caches::two_queue_cache<int, int> cache(test.cache_capacity);
         int hits = 0;
         for (auto key : test.keys)
         {

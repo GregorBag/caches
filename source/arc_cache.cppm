@@ -1,4 +1,4 @@
-#pragma once
+module;
 
 #include <algorithm>
 #include <cmath>
@@ -7,9 +7,11 @@
 #include <unordered_map>
 #include <optional>
 
-namespace caches {
+export module arc_cache;
 
-template <typename T, typename KeyT = int> class arc_cache_t {
+export namespace caches {
+
+template <typename T, typename KeyT = int> class arc_cache {
   using ListIt = typename std::list<KeyT>::iterator;
 
   enum class ResidentQueue { T1, T2 };
@@ -151,7 +153,7 @@ template <typename T, typename KeyT = int> class arc_cache_t {
 
   public:
 
-  explicit arc_cache_t(std::size_t capacity): capacity_(capacity) {}
+  explicit arc_cache(std::size_t capacity): capacity_(capacity) {}
 
   template <typename F> bool lookup_update(KeyT key, F slow_get_page)
   {
@@ -178,7 +180,7 @@ template <typename T, typename KeyT = int> class arc_cache_t {
     if (hit == entries_.end()) return;
     
     auto& entry = hit->second;
-    if (entry.queue == ResidentQueue::T1) 
+    if (entry.queue == ResidentQueue::T1)
     {
       entry.queue = ResidentQueue::T2;
       T2_.splice(T2_.begin(), T1_, entry.position);
