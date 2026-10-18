@@ -18,10 +18,12 @@ Configure and build from the repository root:
 
 ```bash
 cmake -S . -B build -G Ninja -DCMAKE_CXX_COMPILER=g++-14 -DCMAKE_BUILD_TYPE=Release
+```
+Tests are enabled by default. Add `-DBUILD_TESTS=OFF` to configure a library-only build.
+
+```bash
 cmake --build build -j2
 ```
-
-Tests are enabled by default. Add `-DBUILD_TESTS=OFF` to configure a library-only build.
 
 ## Running
 
