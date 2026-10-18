@@ -7,10 +7,13 @@ module;
 #include <optional>
 
 export module two_queue_cache;
+import abstract_cache;
 
 export namespace caches {
 
-template <typename Value, typename Key = int> class two_queue_cache {
+template <typename Value, typename Key = int>
+class two_queue_cache : public abstract_cache<Value, Key>
+{
   using ListIt = typename std::list<Key>::iterator;
 
   enum class ResidentQueue {
@@ -35,8 +38,6 @@ template <typename Value, typename Key = int> class two_queue_cache {
   const std::size_t capacity_Ain_ = capacity_ / 4;
   const std::size_t capacity_Aout_ = capacity_ / 2;
 
-  bool full() const { return (entries_.size() == capacity_); }
-
   const Key occupancy_solution() {
     if (a1in_.size() > capacity_Ain_) {
       Key victim_key = a1in_.back();
@@ -57,6 +58,45 @@ template <typename Value, typename Key = int> class two_queue_cache {
     entries_.erase(am_.back());
     am_.pop_back();
     return victim_key;
+  }
+
+  
+
+  public:
+
+  explicit two_queue_cache(std::size_t capacity): capacity_(capacity) {}
+  bool full() const { return (entries_.size() == capacity_); }
+  std::size_t capacity() const { return capacity_; }
+
+  template <typename F> bool lookup_update(Key key, F slow_get_page) 
+  {
+    if (!capacity_) return false;
+    if (peek(key))
+    {
+      touch(key);
+      return true;
+    }
+    insert(key, slow_get_page(key));
+    return false;
+  }
+
+  const Value* peek(const Key& key) const
+  {
+    auto hit = entries_.find(key);
+    if (hit != entries_.end()) return &hit->second.value;
+    return nullptr;
+  }
+
+  void touch(const Key& key)
+  {
+    auto hit = entries_.find(key);
+    if (hit == entries_.end()) return;
+
+    auto& entry = hit->second;
+    if (entry.queue == ResidentQueue::Am) {
+      am_.splice(am_.begin(), am_, entry.position);
+    }
+    //if hit in A1in we do nothing
   }
 
   std::optional<Key> insert(const Key& key, const Value& value)
@@ -95,42 +135,6 @@ template <typename Value, typename Key = int> class two_queue_cache {
 
     entries_.erase(hit);
   }
-
-  public:
-
-  explicit two_queue_cache(std::size_t capacity): capacity_(capacity) {}
-
-  template <typename F> bool lookup_update(Key key, F slow_get_page) 
-  {
-    if (!capacity_) return false;
-    if (peek(key))
-    {
-      touch(key);
-      return true;
-    }
-    insert(key, slow_get_page(key));
-    return false;
-  }
-
-  const Value* peek(const Key& key) const
-  {
-    auto hit = entries_.find(key);
-    if (hit != entries_.end()) return &hit->second.value;
-    return nullptr;
-  }
-
-  void touch(const Key& key)
-  {
-    auto hit = entries_.find(key);
-    if (hit == entries_.end()) return;
-
-    auto& entry = hit->second;
-    if (entry.queue == ResidentQueue::Am) {
-      am_.splice(am_.begin(), am_, entry.position);
-    }
-    //if hit in A1in we do nothing
-  }
-
 };
 
 } // namespace caches
