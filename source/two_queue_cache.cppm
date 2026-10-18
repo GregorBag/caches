@@ -1,6 +1,5 @@
 module;
 
-#include <cmath>
 #include <cstddef>
 #include <list>
 #include <unordered_map>
@@ -59,8 +58,6 @@ class two_queue_cache : public abstract_cache<Value, Key>
     am_.pop_back();
     return victim_key;
   }
-
-  
 
   public:
 

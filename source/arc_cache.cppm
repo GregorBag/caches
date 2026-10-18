@@ -1,7 +1,6 @@
 module;
 
 #include <algorithm>
-#include <cmath>
 #include <cstddef>
 #include <list>
 #include <unordered_map>
@@ -18,7 +17,6 @@ class arc_cache : public abstract_cache<Value, Key>
   using ListIt = typename std::list<Key>::iterator;
 
   enum class ResidentQueue { T1, T2 };
-
   enum class HistoryQueue { B1, B2 };
 
   struct ResidentEntry {
