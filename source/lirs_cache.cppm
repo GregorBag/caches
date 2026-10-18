@@ -10,10 +10,12 @@ module;
 #include <optional>
 
 export module lirs_cache;
+import abstract_cache;
 
 export namespace caches {
 
-template <typename Value, typename Key = int> class lirs_cache
+template <typename Value, typename Key = int> 
+class lirs_cache : public abstract_cache<Value, Key>
 {
   using ListIt = typename std::list<Key>::iterator;
 
@@ -48,7 +50,7 @@ template <typename Value, typename Key = int> class lirs_cache
 
   std::optional<Key> evict_if_full()
   {
-    if (!((lir_size_ + hir_size_) == capacity_)) return std::nullopt;
+    if (!full()) return std::nullopt;
     Key victim_key = Q_.front();
 
     auto s_hit = S_map_.find(victim_key);
@@ -188,18 +190,8 @@ template <typename Value, typename Key = int> class lirs_cache
     hir_capacity_(capacity == 0 ? 0 : std::max<std::size_t>(1, capacity / 100)),
     lir_capacity_(capacity_ - hir_capacity_) {}
 
-
-  template <typename F> bool lookup_update(Key key, F slow_get_page)
-  {
-    if (!capacity_) return false;
-    if (peek(key))
-    {
-      touch(key);
-      return true;
-    }
-    insert(key, slow_get_page(key));
-    return false;
-  }
+  bool full() const { return ((lir_size_ + hir_size_) == capacity_); }
+  std::size_t capacity() const { return capacity_; }
 
   const Value* peek(const Key& key) const
   {
