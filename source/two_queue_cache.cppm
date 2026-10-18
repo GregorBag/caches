@@ -10,8 +10,8 @@ export module two_queue_cache;
 
 export namespace caches {
 
-template <typename T, typename KeyT = int> class two_queue_cache {
-  using ListIt = typename std::list<KeyT>::iterator;
+template <typename Value, typename Key = int> class two_queue_cache {
+  using ListIt = typename std::list<Key>::iterator;
 
   enum class ResidentQueue {
     A1in,
@@ -19,17 +19,17 @@ template <typename T, typename KeyT = int> class two_queue_cache {
   };
 
   struct Entry {
-    T value;
+    Value value;
     ResidentQueue queue;
     ListIt position;
   };
 
-  std::list<KeyT> a1in_;
-  std::list<KeyT> a1out_;
-  std::list<KeyT> am_;
+  std::list<Key> a1in_;
+  std::list<Key> a1out_;
+  std::list<Key> am_;
   
-  std::unordered_map<KeyT, Entry> entries_;
-  std::unordered_map<KeyT, ListIt> history_;
+  std::unordered_map<Key, Entry> entries_;
+  std::unordered_map<Key, ListIt> history_;
   
   const std::size_t capacity_;
   const std::size_t capacity_Ain_ = capacity_ / 4;
@@ -37,9 +37,9 @@ template <typename T, typename KeyT = int> class two_queue_cache {
 
   bool full() const { return (entries_.size() == capacity_); }
 
-  const KeyT occupancy_solution() {
+  const Key occupancy_solution() {
     if (a1in_.size() > capacity_Ain_) {
-      KeyT victim_key = a1in_.back();
+      Key victim_key = a1in_.back();
       ListIt victim_it = entries_.find(victim_key)->second.position;
 
       entries_.erase(victim_key);
@@ -53,16 +53,16 @@ template <typename T, typename KeyT = int> class two_queue_cache {
       return victim_key;
     } 
 
-    KeyT victim_key = am_.back();
+    Key victim_key = am_.back();
     entries_.erase(am_.back());
     am_.pop_back();
     return victim_key;
   }
 
-  std::optional<KeyT> insert(const KeyT& key, const T& value)
+  std::optional<Key> insert(const Key& key, const Value& value)
   {
     if (!capacity_) return std::nullopt;
-    std::optional<KeyT> victim_key = std::nullopt;
+    std::optional<Key> victim_key = std::nullopt;
     auto history_hit = history_.find(key);
 
     if (history_hit != history_.end()) 
@@ -82,7 +82,7 @@ template <typename T, typename KeyT = int> class two_queue_cache {
     return victim_key;
   }
 
-  void invalidate(const KeyT& key)
+  void invalidate(const Key& key)
   {
     auto hit = entries_.find(key);
     if (hit == entries_.end()) return;
@@ -100,7 +100,7 @@ template <typename T, typename KeyT = int> class two_queue_cache {
 
   explicit two_queue_cache(std::size_t capacity): capacity_(capacity) {}
 
-  template <typename F> bool lookup_update(KeyT key, F slow_get_page) 
+  template <typename F> bool lookup_update(Key key, F slow_get_page) 
   {
     if (!capacity_) return false;
     if (peek(key))
@@ -112,14 +112,14 @@ template <typename T, typename KeyT = int> class two_queue_cache {
     return false;
   }
 
-  const T* peek(const KeyT& key) const
+  const Value* peek(const Key& key) const
   {
     auto hit = entries_.find(key);
     if (hit != entries_.end()) return &hit->second.value;
     return nullptr;
   }
 
-  void touch(const KeyT& key)
+  void touch(const Key& key)
   {
     auto hit = entries_.find(key);
     if (hit == entries_.end()) return;

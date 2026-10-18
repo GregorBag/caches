@@ -9,24 +9,24 @@ export module lru_cache;
 
 export namespace caches {
 
-template <typename T, typename KeyT = int> class lru_cache {
-  using ListIt = typename std::list<KeyT>::iterator;
+template <typename Value, typename Key = int> class lru_cache {
+  using ListIt = typename std::list<Key>::iterator;
 
   struct Entry {
-    T value;
+    Value value;
     ListIt position;
   };
 
   std::size_t capacity_;
-  std::list<KeyT> cache_;
-  std::unordered_map<KeyT, Entry> entries_;
+  std::list<Key> cache_;
+  std::unordered_map<Key, Entry> entries_;
 
   bool full() const { return (cache_.size() == capacity_); }
 
-  std::optional<KeyT> insert(const KeyT& key, const T& value)
+  std::optional<Key> insert(const Key& key, const Value& value)
   {
     if (!capacity_) return std::nullopt;
-    std::optional<KeyT> victim_key = std::nullopt;
+    std::optional<Key> victim_key = std::nullopt;
 
     if (full()) {
       victim_key = cache_.back();
@@ -38,7 +38,7 @@ template <typename T, typename KeyT = int> class lru_cache {
     return victim_key;
   }
 
-  void invalidate(const KeyT& key)
+  void invalidate(const Key& key)
   {
     auto hit = entries_.find(key);
     if (hit == entries_.end()) return;
@@ -51,7 +51,7 @@ template <typename T, typename KeyT = int> class lru_cache {
   
   explicit lru_cache(std::size_t capacity) : capacity_(capacity) {}
 
-  template <typename F> bool lookup_update(KeyT key, F slow_get_page)
+  template <typename F> bool lookup_update(Key key, F slow_get_page)
   {
     if (!capacity_) return false;
     if (peek(key))
@@ -63,14 +63,14 @@ template <typename T, typename KeyT = int> class lru_cache {
     return false;
   }
 
-  const T* peek(const KeyT& key) const
+  const Value* peek(const Key& key) const
   {
     auto hit = entries_.find(key);
     if (hit != entries_.end()) return &hit->second.value;
     return nullptr;
   }
 
-  void touch(const KeyT& key)
+  void touch(const Key& key)
   {
     auto hit = entries_.find(key);
     if (hit == entries_.end()) return;

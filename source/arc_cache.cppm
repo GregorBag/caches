@@ -11,15 +11,15 @@ export module arc_cache;
 
 export namespace caches {
 
-template <typename T, typename KeyT = int> class arc_cache {
-  using ListIt = typename std::list<KeyT>::iterator;
+template <typename Value, typename Key = int> class arc_cache {
+  using ListIt = typename std::list<Key>::iterator;
 
   enum class ResidentQueue { T1, T2 };
 
   enum class HistoryQueue { B1, B2 };
 
   struct ResidentEntry {
-    T value;
+    Value value;
     ResidentQueue queue;
     ListIt position;
   };
@@ -29,13 +29,13 @@ template <typename T, typename KeyT = int> class arc_cache {
     ListIt position;
   };
 
-  std::list<KeyT> T1_;
-  std::list<KeyT> T2_;
-  std::list<KeyT> B1_;
-  std::list<KeyT> B2_;
+  std::list<Key> T1_;
+  std::list<Key> T2_;
+  std::list<Key> B1_;
+  std::list<Key> B2_;
 
-  std::unordered_map<KeyT, ResidentEntry> entries_;
-  std::unordered_map<KeyT, HistoryEntry> history_;
+  std::unordered_map<Key, ResidentEntry> entries_;
+  std::unordered_map<Key, HistoryEntry> history_;
 
   const std::size_t capacity_;
   std::size_t p_ = 0;
@@ -44,18 +44,18 @@ template <typename T, typename KeyT = int> class arc_cache {
 
   size_t total_size() { return entries_.size() + history_.size(); }
 
-  const KeyT replace(bool x_in_B2) 
+  const Key replace(bool x_in_B2) 
   {
     if (!T1_.empty() && (T1_.size() > p_ || (x_in_B2 && T1_.size() == p_))) 
     {
-      KeyT victim_key = T1_.back();
+      Key victim_key = T1_.back();
       entries_.erase(victim_key);
 
       B1_.splice(B1_.begin(), T1_, --T1_.end());
       history_.emplace(victim_key, HistoryEntry{HistoryQueue::B1, B1_.begin()});
       return victim_key;
     }
-    KeyT victim_key = T2_.back();
+    Key victim_key = T2_.back();
     entries_.erase(victim_key);
 
     B2_.splice(B2_.begin(), T2_, --T2_.end());
@@ -64,7 +64,7 @@ template <typename T, typename KeyT = int> class arc_cache {
   }
 
   template <typename Entry>
-  static void erase_back_block(std::list<KeyT>& list, std::unordered_map<KeyT, Entry>& table) 
+  static void erase_back_block(std::list<Key>& list, std::unordered_map<Key, Entry>& table) 
   {
     table.erase(list.back());
     list.pop_back();
@@ -82,10 +82,10 @@ template <typename T, typename KeyT = int> class arc_cache {
     p_ = delta >= p_ ? 0 : p_ - delta;
   }
 
-  std::optional<KeyT> insert(const KeyT& key, const T& value)
+  std::optional<Key> insert(const Key& key, const Value& value)
   {
     if (!capacity_) return std::nullopt;
-    std::optional<KeyT> victim_key = std::nullopt;
+    std::optional<Key> victim_key = std::nullopt;
     auto history_hit = history_.find(key);
 
     if (history_hit != history_.end()) {
@@ -136,7 +136,7 @@ template <typename T, typename KeyT = int> class arc_cache {
     return victim_key;
   }
 
-  void invalidate(const KeyT& key)
+  void invalidate(const Key& key)
   {
     auto hit = entries_.find(key);
     if (hit == entries_.end()) return;
@@ -155,7 +155,7 @@ template <typename T, typename KeyT = int> class arc_cache {
 
   explicit arc_cache(std::size_t capacity): capacity_(capacity) {}
 
-  template <typename F> bool lookup_update(KeyT key, F slow_get_page)
+  template <typename F> bool lookup_update(Key key, F slow_get_page)
   {
     if (!capacity_) return false;
     if (peek(key))
@@ -167,14 +167,14 @@ template <typename T, typename KeyT = int> class arc_cache {
     return false;
   }
 
-  const T* peek(const KeyT& key) const
+  const Value* peek(const Key& key) const
   {
     auto hit = entries_.find(key);
     if (hit != entries_.end()) return &hit->second.value;
     return nullptr;
   }
 
-  void touch(const KeyT& key)
+  void touch(const Key& key)
   {
     auto hit = entries_.find(key);
     if (hit == entries_.end()) return;

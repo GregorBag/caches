@@ -9,27 +9,27 @@ export module lfu_cache;
 
 export namespace caches {
 
-template <typename T, typename KeyT = int> class lfu_cache { 
+template <typename Value, typename Key = int> class lfu_cache { 
   const std::size_t capacity_;
   std::size_t min_freq_ = 0;
 
-  using ListIt = typename std::list<KeyT>::iterator;
+  using ListIt = typename std::list<Key>::iterator;
 
   struct Entry {
-    T value;
+    Value value;
     std::size_t freq;
     ListIt position;
   };
 
-  std::unordered_map<KeyT, Entry> entries_;
-  std::unordered_map<std::size_t, std::list<KeyT>> groups_;
+  std::unordered_map<Key, Entry> entries_;
+  std::unordered_map<std::size_t, std::list<Key>> groups_;
   
   bool full() const { return (entries_.size() == capacity_); }
 
-  std::optional<KeyT> insert(const KeyT& key, const T& value)
+  std::optional<Key> insert(const Key& key, const Value& value)
   {
     if (!capacity_) return std::nullopt;
-    std::optional<KeyT> victim_key = std::nullopt;
+    std::optional<Key> victim_key = std::nullopt;
 
     if (full()) {
       auto& min_group = groups_.at(min_freq_);
@@ -50,7 +50,7 @@ template <typename T, typename KeyT = int> class lfu_cache {
     return victim_key;
   }
 
-  void invalidate(const KeyT& key)
+  void invalidate(const Key& key)
   {
     auto hit = entries_.find(key);
     if (hit == entries_.end()) return;
@@ -83,7 +83,7 @@ template <typename T, typename KeyT = int> class lfu_cache {
 
   explicit lfu_cache(std::size_t capacity): capacity_(capacity) {}
 
-  template <typename F> bool lookup_update(KeyT key, F slow_get_page) 
+  template <typename F> bool lookup_update(Key key, F slow_get_page) 
   {
     if (!capacity_) return false;
     if (peek(key))
@@ -95,14 +95,14 @@ template <typename T, typename KeyT = int> class lfu_cache {
     return false;
   }
 
-  const T* peek(const KeyT& key) const
+  const Value* peek(const Key& key) const
   {
     auto hit = entries_.find(key);
     if (hit != entries_.end()) return &hit->second.value;
     return nullptr;
   }
 
-  void touch(const KeyT& key)
+  void touch(const Key& key)
   {
     auto hit = entries_.find(key);
     if (hit == entries_.end()) return;

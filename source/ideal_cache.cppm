@@ -12,16 +12,16 @@ export module ideal_cache;
 
 export namespace caches {
 
-template <typename KeyT = int> class ideal_cache {
+template <typename Key = int> class ideal_cache {
   const std::size_t capacity_;
   const std::size_t data_size_;
-  const std::vector<KeyT> data_;
+  const std::vector<Key> data_;
 
-  using ListIt = typename std::list<KeyT>::iterator;
+  using ListIt = typename std::list<Key>::iterator;
 
-  std::list<KeyT> cache_;
-  std::unordered_map<KeyT, ListIt> hash_;
-  std::unordered_map<KeyT, std::list<std::size_t>> stats_;
+  std::list<Key> cache_;
+  std::unordered_map<Key, ListIt> hash_;
+  std::unordered_map<Key, std::list<std::size_t>> stats_;
 
 
   void cache_erase(ListIt it) 
@@ -30,13 +30,13 @@ template <typename KeyT = int> class ideal_cache {
     cache_.erase(it);
   }
 
-  std::size_t next_use(KeyT key)
+  std::size_t next_use(Key key)
   {
     if (stats_.at(key).empty()) return data_size_ + 1;
     return stats_.at(key).front();
   }
 
-  ListIt cache_insert_key(KeyT key) 
+  ListIt cache_insert_key(Key key) 
   {
     ListIt currentIt = cache_.begin();
     std::size_t next = next_use(key);
@@ -49,10 +49,9 @@ template <typename KeyT = int> class ideal_cache {
     return inserted;
   }
 
-
   public:
 
-  explicit ideal_cache(std::size_t capacity, std::size_t data_size, std::vector<KeyT> data): 
+  explicit ideal_cache(std::size_t capacity, std::size_t data_size, std::vector<Key> data): 
     capacity_(capacity), 
     data_size_(data_size), 
     data_(std::move(data)) 
@@ -68,7 +67,7 @@ template <typename KeyT = int> class ideal_cache {
 
     for (std::size_t i = 0; i < data_size_; i++) 
     {
-      KeyT key = data_[i];
+      Key key = data_[i];
       stats_.at(key).pop_front();
       
       auto hit = hash_.find(key);

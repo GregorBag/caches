@@ -13,9 +13,9 @@ export module lirs_cache;
 
 export namespace caches {
 
-template <typename T, typename KeyT = int> class lirs_cache
+template <typename Value, typename Key = int> class lirs_cache
 {
-  using ListIt = typename std::list<KeyT>::iterator;
+  using ListIt = typename std::list<Key>::iterator;
 
   const std::size_t capacity_;
   const std::size_t hir_capacity_;
@@ -28,7 +28,7 @@ template <typename T, typename KeyT = int> class lirs_cache
 
   struct SEntry 
   {
-    std::unique_ptr<T> value;
+    std::unique_ptr<Value> value;
     Kind kind;
     bool is_resident;
     ListIt position;
@@ -36,20 +36,20 @@ template <typename T, typename KeyT = int> class lirs_cache
 
   struct QEntry 
   {
-    std::unique_ptr<T> value;
+    std::unique_ptr<Value> value;
     ListIt position;
   };
 
-  std::list<KeyT> S_;  
-  std::list<KeyT> Q_;
+  std::list<Key> S_;  
+  std::list<Key> Q_;
 
-  std::unordered_map<KeyT, SEntry> S_map_; 
-  std::unordered_map<KeyT, QEntry> Q_map_;
+  std::unordered_map<Key, SEntry> S_map_; 
+  std::unordered_map<Key, QEntry> Q_map_;
 
-  std::optional<KeyT> evict_if_full()
+  std::optional<Key> evict_if_full()
   {
     if (!((lir_size_ + hir_size_) == capacity_)) return std::nullopt;
-    KeyT victim_key = Q_.front();
+    Key victim_key = Q_.front();
 
     auto s_hit = S_map_.find(victim_key);
     if (s_hit != S_map_.end()) s_hit->second.is_resident = false;
@@ -61,14 +61,14 @@ template <typename T, typename KeyT = int> class lirs_cache
     return victim_key;
   }
 
-  void queue_push_back(const KeyT& key, std::unique_ptr<T> value)
+  void queue_push_back(const Key& key, std::unique_ptr<Value> value)
   {
     auto position = Q_.insert(Q_.end(), key);
     Q_map_.emplace(key, QEntry{std::move(value), position});
     ++hir_size_;
   }
 
-  void promote_to_lir(SEntry& entry, std::unique_ptr<T> value)
+  void promote_to_lir(SEntry& entry, std::unique_ptr<Value> value)
   {
     entry.value = std::move(value);
     entry.kind = Kind::LIR;
@@ -77,9 +77,9 @@ template <typename T, typename KeyT = int> class lirs_cache
     S_.splice(S_.begin(), S_, entry.position);
   }
 
-  std::optional<KeyT> single_capacity_insert(const KeyT& key, const T& value) 
+  std::optional<Key> single_capacity_insert(const Key& key, const Value& value) 
   {
-    std::optional<KeyT> victim_key = std::nullopt;
+    std::optional<Key> victim_key = std::nullopt;
     if (hir_size_ == 1) 
     { 
       victim_key = Q_.front();
@@ -87,7 +87,7 @@ template <typename T, typename KeyT = int> class lirs_cache
       Q_map_.clear(); hir_size_--; 
     }
     
-    queue_push_back(key, std::make_unique<T>(value));
+    queue_push_back(key, std::make_unique<Value>(value));
     return victim_key;
   }
 
@@ -102,7 +102,7 @@ template <typename T, typename KeyT = int> class lirs_cache
 
   void demote_oldest_lir() 
   {
-    KeyT victim_key = S_.back();
+    Key victim_key = S_.back();
     auto& victim_entry = S_map_.find(victim_key)->second;
 
     queue_push_back(victim_key, std::move(victim_entry.value));
@@ -113,13 +113,13 @@ template <typename T, typename KeyT = int> class lirs_cache
     prune_stack();
   }
 
-  std::optional<KeyT> insert_new_page (const KeyT& key, const T& value) 
+  std::optional<Key> insert_new_page (const Key& key, const Value& value) 
   {
-    std::optional<KeyT> victim_key = evict_if_full();
+    std::optional<Key> victim_key = evict_if_full();
 
     if (lir_size_ == lir_capacity_) 
     {
-      queue_push_back(key, std::make_unique<T>(value));
+      queue_push_back(key, std::make_unique<Value>(value));
       S_.push_front(key);
       S_map_.emplace(key, SEntry{nullptr, Kind::HIR, true, S_.begin()});
 
@@ -127,15 +127,15 @@ template <typename T, typename KeyT = int> class lirs_cache
     } 
 
     S_.push_front(key);
-    S_map_.emplace(key, SEntry{std::make_unique<T>(value), Kind::LIR, true, S_.begin()});
+    S_map_.emplace(key, SEntry{std::make_unique<Value>(value), Kind::LIR, true, S_.begin()});
 
     lir_size_++;
     return victim_key;
   }
   
-  std::optional<KeyT> insert(const KeyT& key, const T& value)
+  std::optional<Key> insert(const Key& key, const Value& value)
   {
-    std::optional<KeyT> victim_key = std::nullopt;
+    std::optional<Key> victim_key = std::nullopt;
     if (!capacity_) return victim_key;
     if (capacity_ == 1) return single_capacity_insert(key, value);
 
@@ -145,7 +145,7 @@ template <typename T, typename KeyT = int> class lirs_cache
       //hit NonResHir in S
       auto& entry = s_hit->second;
       victim_key = evict_if_full();
-      promote_to_lir(entry, std::make_unique<T>(value));
+      promote_to_lir(entry, std::make_unique<Value>(value));
       if (lir_size_ > lir_capacity_) demote_oldest_lir();
       
       return victim_key;
@@ -155,7 +155,7 @@ template <typename T, typename KeyT = int> class lirs_cache
     return insert_new_page(key, value);
   }
 
-  void invalidate(const KeyT& key)
+  void invalidate(const Key& key)
   {
     auto s_hit = S_map_.find(key);
     if (s_hit != S_map_.end())
@@ -189,7 +189,7 @@ template <typename T, typename KeyT = int> class lirs_cache
     lir_capacity_(capacity_ - hir_capacity_) {}
 
 
-  template <typename F> bool lookup_update(KeyT key, F slow_get_page)
+  template <typename F> bool lookup_update(Key key, F slow_get_page)
   {
     if (!capacity_) return false;
     if (peek(key))
@@ -201,7 +201,7 @@ template <typename T, typename KeyT = int> class lirs_cache
     return false;
   }
 
-  const T* peek(const KeyT& key) const
+  const Value* peek(const Key& key) const
   {
     auto s_hit = S_map_.find(key);
     if (s_hit != S_map_.end() && s_hit->second.kind == Kind::LIR) 
@@ -213,7 +213,7 @@ template <typename T, typename KeyT = int> class lirs_cache
     return nullptr;
   }
 
-  void touch(const KeyT& key)
+  void touch(const Key& key)
   {
     if (capacity_ == 1) return;
 
