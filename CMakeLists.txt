@@ -14,6 +14,7 @@ target_sources(caches
   PUBLIC
     FILE_SET CXX_MODULES
     FILES
+      source/abstract_cache.cppm
       source/arc_cache.cppm
       source/ideal_cache.cppm
       source/lfu_cache.cppm

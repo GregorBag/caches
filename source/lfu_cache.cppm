@@ -6,10 +6,13 @@ module;
 #include <optional>
 
 export module lfu_cache;
+import abstract_cache;
 
 export namespace caches {
 
-template <typename Value, typename Key = int> class lfu_cache { 
+template <typename Value, typename Key = int>
+class lfu_cache : public abstract_cache<Value, Key> 
+{ 
   const std::size_t capacity_;
   std::size_t min_freq_ = 0;
 
@@ -23,8 +26,8 @@ template <typename Value, typename Key = int> class lfu_cache {
 
   std::unordered_map<Key, Entry> entries_;
   std::unordered_map<std::size_t, std::list<Key>> groups_;
-  
-  bool full() const { return (entries_.size() == capacity_); }
+
+  public:
 
   std::optional<Key> insert(const Key& key, const Value& value)
   {
@@ -78,22 +81,9 @@ template <typename Value, typename Key = int> class lfu_cache {
       }
     }
   }
-
-  public:
-
   explicit lfu_cache(std::size_t capacity): capacity_(capacity) {}
-
-  template <typename F> bool lookup_update(Key key, F slow_get_page) 
-  {
-    if (!capacity_) return false;
-    if (peek(key))
-    {
-      touch(key);
-      return true;
-    }
-    insert(key, slow_get_page(key));
-    return false;
-  }
+  bool full() const { return (entries_.size() == capacity_); }
+  std::size_t capacity() const { return capacity_; }
 
   const Value* peek(const Key& key) const
   {

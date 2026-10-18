@@ -8,10 +8,13 @@ module;
 #include <optional>
 
 export module arc_cache;
+import abstract_cache;
 
 export namespace caches {
 
-template <typename Value, typename Key = int> class arc_cache {
+template <typename Value, typename Key = int>
+class arc_cache : public abstract_cache<Value, Key>
+{
   using ListIt = typename std::list<Key>::iterator;
 
   enum class ResidentQueue { T1, T2 };
@@ -39,8 +42,6 @@ template <typename Value, typename Key = int> class arc_cache {
 
   const std::size_t capacity_;
   std::size_t p_ = 0;
-
-  bool full() const { return (entries_.size() == capacity_); }
 
   size_t total_size() { return entries_.size() + history_.size(); }
 
@@ -80,6 +81,35 @@ template <typename Value, typename Key = int> class arc_cache {
   {
     auto delta = std::max<std::size_t>(1, B1_.size() / B2_.size());
     p_ = delta >= p_ ? 0 : p_ - delta;
+  }
+
+  public:
+
+  explicit arc_cache(std::size_t capacity): capacity_(capacity) {}
+  bool full() const { return (entries_.size() == capacity_); }
+  std::size_t capacity() const { return capacity_; }
+
+  const Value* peek(const Key& key) const
+  {
+    auto hit = entries_.find(key);
+    if (hit != entries_.end()) return &hit->second.value;
+    return nullptr;
+  }
+
+  void touch(const Key& key)
+  {
+    auto hit = entries_.find(key);
+    if (hit == entries_.end()) return;
+    
+    auto& entry = hit->second;
+    if (entry.queue == ResidentQueue::T1)
+    {
+      entry.queue = ResidentQueue::T2;
+      T2_.splice(T2_.begin(), T1_, entry.position);
+      return;
+    }
+
+    T2_.splice(T2_.begin(), T2_, entry.position);
   }
 
   std::optional<Key> insert(const Key& key, const Value& value)
@@ -149,47 +179,6 @@ template <typename Value, typename Key = int> class arc_cache {
 
     entries_.erase(hit);
   }
-
-
-  public:
-
-  explicit arc_cache(std::size_t capacity): capacity_(capacity) {}
-
-  template <typename F> bool lookup_update(Key key, F slow_get_page)
-  {
-    if (!capacity_) return false;
-    if (peek(key))
-    {
-      touch(key);
-      return true;
-    }
-    insert(key, slow_get_page(key));
-    return false;
-  }
-
-  const Value* peek(const Key& key) const
-  {
-    auto hit = entries_.find(key);
-    if (hit != entries_.end()) return &hit->second.value;
-    return nullptr;
-  }
-
-  void touch(const Key& key)
-  {
-    auto hit = entries_.find(key);
-    if (hit == entries_.end()) return;
-    
-    auto& entry = hit->second;
-    if (entry.queue == ResidentQueue::T1)
-    {
-      entry.queue = ResidentQueue::T2;
-      T2_.splice(T2_.begin(), T1_, entry.position);
-      return;
-    }
-
-    T2_.splice(T2_.begin(), T2_, entry.position);
-  }
-
 };
 
 } // namespace caches
