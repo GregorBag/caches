@@ -20,6 +20,7 @@ target_sources(caches
       source/lfu_cache.cppm
       source/lirs_cache.cppm
       source/lru_cache.cppm
+      source/multi_level_cache.cppm
       source/two_queue_cache.cppm
 )
 target_compile_features(caches PUBLIC cxx_std_23)
