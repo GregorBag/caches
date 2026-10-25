@@ -5,6 +5,7 @@ add_executable(
   lfu_tests.cpp
   lirs_tests.cpp
   lru_tests.cpp
+  multi_level_tests.cpp
   two_queue_tests.cpp
 )
 
