@@ -108,9 +108,8 @@ TEST(IdealCacheTest, CacheHitsTest)
     for (auto test : test_cases)
     {
         SCOPED_TRACE("test vector: " + ::testing::PrintToString(test.keys));
-
-        caches::ideal_cache<int> cache(test.cache_capacity, test.keys.size(), test.keys);
-        auto hits = cache.ideal_hits_check();
+        
+        auto hits = caches::ideal_hits_check(test.cache_capacity, test.keys);
 
         EXPECT_EQ(hits, test.hits);
     }

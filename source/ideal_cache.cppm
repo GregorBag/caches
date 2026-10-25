@@ -8,7 +8,7 @@ module;
 
 export module ideal_cache;
 
-export namespace caches {
+namespace caches {
 
 template <typename Key = int> class ideal_cache {
   const std::size_t capacity_;
@@ -20,7 +20,6 @@ template <typename Key = int> class ideal_cache {
   std::list<Key> cache_;
   std::unordered_map<Key, ListIt> hash_;
   std::unordered_map<Key, std::list<std::size_t>> stats_;
-
 
   void cache_erase(ListIt it) 
   {
@@ -58,7 +57,7 @@ template <typename Key = int> class ideal_cache {
     }
 
 
-  std::size_t ideal_hits_check() 
+  std::size_t hits_check() 
   {
     if (!capacity_) return 0;
     std::size_t hits = 0;
@@ -91,5 +90,13 @@ template <typename Key = int> class ideal_cache {
   } 
 
 }; 
+
+export template <typename Key = int>
+std::size_t ideal_hits_check(std::size_t capacity, std::vector<Key> data)
+{
+    const auto size = data.size();
+    ideal_cache<Key> cache(capacity, size, std::move(data));
+    return cache.hits_check();
+}
 
 } // namespace caches
