@@ -134,13 +134,13 @@ TEST(ARCCacheTest, CacheHitsTest)
 
     auto load = [](int key) { return key; };
 
-    for (auto test : test_cases)
+    for (const auto& test : test_cases)
     {
         SCOPED_TRACE("test vector: " + ::testing::PrintToString(test.keys));
 
         caches::arc_cache<int, int> cache(test.cache_capacity);
         int hits = 0;
-        for (auto key : test.keys)
+        for (const auto& key : test.keys)
         {
             auto hit = cache.lookup_update(key, load);
             if (hit)

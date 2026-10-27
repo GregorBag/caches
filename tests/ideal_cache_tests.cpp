@@ -105,7 +105,7 @@ TEST(IdealCacheTest, CacheHitsTest)
         { 3, { -3, -2, -1, 0, -2, -1, -3, 0 }, 3 },
     };
 
-    for (auto test : test_cases)
+    for (const auto& test : test_cases)
     {
         SCOPED_TRACE("test vector: " + ::testing::PrintToString(test.keys));
         
