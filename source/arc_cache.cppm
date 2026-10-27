@@ -41,7 +41,7 @@ class arc_cache : public abstract_cache<Value, Key>
   const std::size_t capacity_;
   std::size_t p_ = 0;
 
-  size_t total_size() { return entries_.size() + history_.size(); }
+  size_t total_size() const { return entries_.size() + history_.size(); }
 
   const Key replace(bool x_in_B2) 
   {
@@ -84,17 +84,17 @@ class arc_cache : public abstract_cache<Value, Key>
   public:
 
   explicit arc_cache(std::size_t capacity): capacity_(capacity) {}
-  bool full() const { return (entries_.size() == capacity_); }
-  std::size_t capacity() const { return capacity_; }
+  bool full() const override { return (entries_.size() == capacity_); }
+  std::size_t capacity() const override { return capacity_; }
 
-  const Value* peek(const Key& key) const
+  const Value* peek(const Key& key) const override
   {
     auto hit = entries_.find(key);
     if (hit != entries_.end()) return &hit->second.value;
     return nullptr;
   }
 
-  void touch(const Key& key)
+  void touch(const Key& key) override
   {
     auto hit = entries_.find(key);
     if (hit == entries_.end()) return;
@@ -110,7 +110,7 @@ class arc_cache : public abstract_cache<Value, Key>
     T2_.splice(T2_.begin(), T2_, entry.position);
   }
 
-  void invalidate(const Key& key)
+  void invalidate(const Key& key) override
   {
     auto hit = entries_.find(key);
     if (hit == entries_.end()) return;

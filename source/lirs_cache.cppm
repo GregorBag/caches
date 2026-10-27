@@ -163,10 +163,10 @@ class lirs_cache : public abstract_cache<Value, Key>
     hir_capacity_(capacity == 0 ? 0 : std::max<std::size_t>(1, capacity / 100)),
     lir_capacity_(capacity_ - hir_capacity_) {}
 
-  bool full() const { return ((lir_size_ + hir_size_) == capacity_); }
-  std::size_t capacity() const { return capacity_; }
+  bool full() const override { return ((lir_size_ + hir_size_) == capacity_); }
+  std::size_t capacity() const override { return capacity_; }
 
-  const Value* peek(const Key& key) const
+  const Value* peek(const Key& key) const override
   {
     auto s_hit = S_map_.find(key);
     if (s_hit != S_map_.end() && s_hit->second.kind == Kind::LIR) 
@@ -178,7 +178,7 @@ class lirs_cache : public abstract_cache<Value, Key>
     return nullptr;
   }
 
-  void touch(const Key& key)
+  void touch(const Key& key) override
   {
     if (capacity_ == 1) return;
 
@@ -224,7 +224,7 @@ class lirs_cache : public abstract_cache<Value, Key>
     }
   }
   
-  void invalidate(const Key& key)
+  void invalidate(const Key& key) override
   {
     auto s_hit = S_map_.find(key);
     if (s_hit != S_map_.end())

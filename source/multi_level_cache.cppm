@@ -36,7 +36,6 @@ class multi_level_cache : public abstract_cache<Value, Key>
       const std::size_t i = cursor - 1;
       auto victim = Base::insert_into(*levels_[i], key, value);
 
-      // Only eviction from the deepest level removes a page from the hierarchy.
       if (cursor == levels_.size()) victim_key = victim;
 
       if (victim)

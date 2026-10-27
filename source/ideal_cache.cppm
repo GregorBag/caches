@@ -27,7 +27,7 @@ template <typename Key = int> class ideal_cache {
     cache_.erase(it);
   }
 
-  std::size_t next_use(Key key)
+  std::size_t next_use(Key key) const
   {
     if (stats_.at(key).empty()) return data_size_ + 1;
     return stats_.at(key).front();

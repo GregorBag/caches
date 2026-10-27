@@ -54,17 +54,17 @@ class lfu_cache : public abstract_cache<Value, Key>
   public:
 
   explicit lfu_cache(std::size_t capacity): capacity_(capacity) {}
-  bool full() const { return (entries_.size() == capacity_); }
-  std::size_t capacity() const { return capacity_; }
+  bool full() const override { return (entries_.size() == capacity_); }
+  std::size_t capacity() const override { return capacity_; }
 
-  const Value* peek(const Key& key) const
+  const Value* peek(const Key& key) const override
   {
     auto hit = entries_.find(key);
     if (hit != entries_.end()) return &hit->second.value;
     return nullptr;
   }
 
-  void touch(const Key& key)
+  void touch(const Key& key) override
   {
     auto hit = entries_.find(key);
     if (hit == entries_.end()) return;
@@ -87,7 +87,7 @@ class lfu_cache : public abstract_cache<Value, Key>
     }
   }
 
-  void invalidate(const Key& key)
+  void invalidate(const Key& key) override
   {
     auto hit = entries_.find(key);
     if (hit == entries_.end()) return;
