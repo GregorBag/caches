@@ -28,6 +28,14 @@ template <typename Value, typename Key = int> class abstract_cache {
   virtual void invalidate(const Key& key) = 0;
   virtual bool full() const = 0;
   virtual std::size_t capacity() const = 0;
+  
+  abstract_cache() = default;
+
+  abstract_cache(const abstract_cache&) = delete;
+  abstract_cache& operator=(const abstract_cache&) = delete;
+
+  abstract_cache(abstract_cache&&) = delete;
+  abstract_cache& operator=(abstract_cache&&) = delete;
 
   virtual ~abstract_cache() = default;
 };
