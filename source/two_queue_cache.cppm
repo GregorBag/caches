@@ -84,7 +84,23 @@ class two_queue_cache : public abstract_cache<Value, Key>
     //if hit in A1in we do nothing
   }
 
-  std::optional<Key> insert(const Key& key, const Value& value)
+  void invalidate(const Key& key)
+  {
+    auto hit = entries_.find(key);
+    if (hit == entries_.end()) return;
+
+    auto& entry = hit->second;
+    if (entry.queue == ResidentQueue::A1in)
+      a1in_.erase(entry.position);
+    else
+      am_.erase(entry.position);
+
+    entries_.erase(hit);
+  }
+
+  private:
+
+  std::optional<Key> insert(const Key& key, const Value& value) override
   {
     if (!capacity_) return std::nullopt;
     std::optional<Key> victim_key = std::nullopt;
@@ -105,20 +121,6 @@ class two_queue_cache : public abstract_cache<Value, Key>
     a1in_.emplace_front(key);
     entries_.emplace(key, Entry{value, ResidentQueue::A1in, a1in_.begin()});
     return victim_key;
-  }
-
-  void invalidate(const Key& key)
-  {
-    auto hit = entries_.find(key);
-    if (hit == entries_.end()) return;
-
-    auto& entry = hit->second;
-    if (entry.queue == ResidentQueue::A1in)
-      a1in_.erase(entry.position);
-    else
-      am_.erase(entry.position);
-
-    entries_.erase(hit);
   }
 };
 

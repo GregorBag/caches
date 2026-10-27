@@ -46,7 +46,9 @@ class lru_cache : public abstract_cache<Value, Key>
     cache_.splice(cache_.begin(), cache_, eltit);
   }
 
-  std::optional<Key> insert(const Key& key, const Value& value)
+  private:
+
+  std::optional<Key> insert(const Key& key, const Value& value) override
   {
     if (!capacity_) return std::nullopt;
     std::optional<Key> victim_key = std::nullopt;
@@ -60,6 +62,8 @@ class lru_cache : public abstract_cache<Value, Key>
     entries_.emplace(key, Entry{value, cache_.begin()});
     return victim_key;
   }
+
+  public:
 
   void invalidate(const Key& key)
   {

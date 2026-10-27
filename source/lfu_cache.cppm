@@ -27,9 +27,7 @@ class lfu_cache : public abstract_cache<Value, Key>
   std::unordered_map<Key, Entry> entries_;
   std::unordered_map<std::size_t, std::list<Key>> groups_;
 
-  public:
-
-  std::optional<Key> insert(const Key& key, const Value& value)
+  std::optional<Key> insert(const Key& key, const Value& value) override
   {
     if (!capacity_) return std::nullopt;
     std::optional<Key> victim_key = std::nullopt;
@@ -53,34 +51,8 @@ class lfu_cache : public abstract_cache<Value, Key>
     return victim_key;
   }
 
-  void invalidate(const Key& key)
-  {
-    auto hit = entries_.find(key);
-    if (hit == entries_.end()) return;
+  public:
 
-    auto& entry = hit->second;
-    auto freq = entry.freq;
-    auto& group = groups_.at(freq);
-
-    group.erase(entry.position);
-    entries_.erase(key);
-
-    if (group.empty()) 
-    {
-      groups_.erase(freq);
-      if (entries_.empty()) 
-      {
-        min_freq_ = 0;
-      } else if (freq == min_freq_) 
-      {
-        min_freq_ = groups_.begin()->first;
-        for (const auto& item : groups_) 
-        {
-          if (item.first < min_freq_) min_freq_ = item.first;
-        }
-      }
-    }
-  }
   explicit lfu_cache(std::size_t capacity): capacity_(capacity) {}
   bool full() const { return (entries_.size() == capacity_); }
   std::size_t capacity() const { return capacity_; }
@@ -115,6 +87,34 @@ class lfu_cache : public abstract_cache<Value, Key>
     }
   }
 
+  void invalidate(const Key& key)
+  {
+    auto hit = entries_.find(key);
+    if (hit == entries_.end()) return;
+
+    auto& entry = hit->second;
+    auto freq = entry.freq;
+    auto& group = groups_.at(freq);
+
+    group.erase(entry.position);
+    entries_.erase(key);
+
+    if (group.empty()) 
+    {
+      groups_.erase(freq);
+      if (entries_.empty()) 
+      {
+        min_freq_ = 0;
+      } else if (freq == min_freq_) 
+      {
+        min_freq_ = groups_.begin()->first;
+        for (const auto& item : groups_) 
+        {
+          if (item.first < min_freq_) min_freq_ = item.first;
+        }
+      }
+    }
+  }
 };
 
 } // namespace caches

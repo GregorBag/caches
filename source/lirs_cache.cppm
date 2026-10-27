@@ -134,7 +134,7 @@ class lirs_cache : public abstract_cache<Value, Key>
     return victim_key;
   }
   
-  std::optional<Key> insert(const Key& key, const Value& value)
+  std::optional<Key> insert(const Key& key, const Value& value) override
   {
     std::optional<Key> victim_key = std::nullopt;
     if (!capacity_) return victim_key;
@@ -154,32 +154,6 @@ class lirs_cache : public abstract_cache<Value, Key>
 
     //unknown hit
     return insert_new_page(key, value);
-  }
-
-  void invalidate(const Key& key)
-  {
-    auto s_hit = S_map_.find(key);
-    if (s_hit != S_map_.end())
-    {
-      const auto kind = s_hit->second.kind;
-      auto& s_entry = s_hit->second;
-      S_.erase(s_entry.position);
-      S_map_.erase(s_hit);
-      if (kind == Kind::LIR) { 
-        prune_stack();
-        --lir_size_; 
-        return; 
-      }
-    }
-
-    auto q_hit = Q_map_.find(key);
-    if (q_hit != Q_map_.end())
-    {
-      auto& q_entry = q_hit->second;
-      Q_.erase(q_entry.position);
-      Q_map_.erase(key);
-      --hir_size_;
-    }
   }
 
   public:
@@ -249,7 +223,32 @@ class lirs_cache : public abstract_cache<Value, Key>
       return;
     }
   }
+  
+  void invalidate(const Key& key)
+  {
+    auto s_hit = S_map_.find(key);
+    if (s_hit != S_map_.end())
+    {
+      const auto kind = s_hit->second.kind;
+      auto& s_entry = s_hit->second;
+      S_.erase(s_entry.position);
+      S_map_.erase(s_hit);
+      if (kind == Kind::LIR) { 
+        prune_stack();
+        --lir_size_; 
+        return; 
+      }
+    }
 
+    auto q_hit = Q_map_.find(key);
+    if (q_hit != Q_map_.end())
+    {
+      auto& q_entry = q_hit->second;
+      Q_.erase(q_entry.position);
+      Q_map_.erase(key);
+      --hir_size_;
+    }
+  }
 };
 
 }  // namespace caches

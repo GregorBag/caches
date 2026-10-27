@@ -17,13 +17,41 @@ enum class CacheTypes {
   LFU,
   LRU,
   LIRS,
-  TW0_QUEUE,
+  TWO_QUEUE,
 };
 
 template <typename Value, typename Key = int>
-class multi_level_cache
+class multi_level_cache : public abstract_cache<Value, Key>
 {
+  using Base = abstract_cache<Value, Key>;
+
   std::vector<std::unique_ptr<abstract_cache<Value, Key>>> levels_;
+
+  std::optional<Key> insert_into_levels(
+    std::size_t count, const Key& key, const Value& value)
+  {
+    std::optional<Key> victim_key;
+    for (std::size_t cursor = count; cursor > 0; --cursor)
+    {
+      const std::size_t i = cursor - 1;
+      auto victim = Base::insert_into(*levels_[i], key, value);
+
+      // Only eviction from the deepest level removes a page from the hierarchy.
+      if (cursor == levels_.size()) victim_key = victim;
+
+      if (victim)
+      {
+        for (std::size_t upper = 0; upper < i; ++upper)
+          levels_[upper]->invalidate(*victim);
+      }
+    }
+    return victim_key;
+  }
+
+  std::optional<Key> insert(const Key& key, const Value& value) override
+  {
+    return insert_into_levels(levels_.size(), key, value);
+  }
 
   public:
 
@@ -45,10 +73,27 @@ class multi_level_cache
     }
   }
 
-  template <typename F> bool lookup_update(Key key, F slow_get_page)
+  bool full() const override
   {
-    if (levels_.empty()) return false;
+    return levels_.empty() || levels_.back()->full();
+  }
 
+  std::size_t capacity() const override
+  {
+    return levels_.empty() ? 0 : levels_.back()->capacity();
+  }
+
+  const Value* peek(const Key& key) const override
+  {
+    for (const auto& level : levels_)
+    {
+      if (const Value* stored = level->peek(key)) return stored;
+    }
+    return nullptr;
+  }
+
+  void touch(const Key& key) override
+  {
     const std::size_t levels_count = levels_.size();
     std::size_t found = levels_count;
     std::optional<Value> value;
@@ -63,24 +108,17 @@ class multi_level_cache
       }
     }
 
-    if (found == levels_count) value.emplace(slow_get_page(key));
+    if (found == levels_count) return;
 
     for (std::size_t i = found; i < levels_count; ++i)
       levels_[i]->touch(key);
 
-    for (std::size_t cursor = found; cursor > 0; --cursor)
-    {
-      const std::size_t i = cursor - 1;
-      auto victim = levels_[i]->insert(key, *value);
+    if (found > 0) insert_into_levels(found, key, *value);
+  }
 
-      if (victim)
-      {
-        for (std::size_t upper = 0; upper < i; ++upper)
-          levels_[upper]->invalidate(*victim);
-      }
-    }
-
-    return found != levels_count;
+  void invalidate(const Key& key) override
+  {
+    for (auto& level : levels_) level->invalidate(key);
   }
 };
 

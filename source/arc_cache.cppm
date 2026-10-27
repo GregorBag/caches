@@ -110,7 +110,23 @@ class arc_cache : public abstract_cache<Value, Key>
     T2_.splice(T2_.begin(), T2_, entry.position);
   }
 
-  std::optional<Key> insert(const Key& key, const Value& value)
+  void invalidate(const Key& key)
+  {
+    auto hit = entries_.find(key);
+    if (hit == entries_.end()) return;
+
+    auto& entry = hit->second;
+    if (entry.queue == ResidentQueue::T1)
+      T1_.erase(entry.position);
+    else
+      T2_.erase(entry.position);
+
+    entries_.erase(hit);
+  }
+
+  private:
+
+  std::optional<Key> insert(const Key& key, const Value& value) override
   {
     if (!capacity_) return std::nullopt;
     std::optional<Key> victim_key = std::nullopt;
@@ -162,20 +178,6 @@ class arc_cache : public abstract_cache<Value, Key>
     T1_.push_front(key);
     entries_.emplace(key, ResidentEntry{value, ResidentQueue::T1, T1_.begin()});
     return victim_key;
-  }
-
-  void invalidate(const Key& key)
-  {
-    auto hit = entries_.find(key);
-    if (hit == entries_.end()) return;
-
-    auto& entry = hit->second;
-    if (entry.queue == ResidentQueue::T1)
-      T1_.erase(entry.position);
-    else
-      T2_.erase(entry.position);
-
-    entries_.erase(hit);
   }
 };
 
