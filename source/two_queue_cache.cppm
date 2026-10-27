@@ -65,18 +65,6 @@ class two_queue_cache : public abstract_cache<Value, Key>
   bool full() const { return (entries_.size() == capacity_); }
   std::size_t capacity() const { return capacity_; }
 
-  template <typename F> bool lookup_update(Key key, F slow_get_page) 
-  {
-    if (!capacity_) return false;
-    if (peek(key))
-    {
-      touch(key);
-      return true;
-    }
-    insert(key, slow_get_page(key));
-    return false;
-  }
-
   const Value* peek(const Key& key) const
   {
     auto hit = entries_.find(key);
