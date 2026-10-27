@@ -41,7 +41,7 @@ class arc_cache : public abstract_cache<Value, Key>
   const std::size_t capacity_;
   std::size_t p_ = 0;
 
-  size_t total_size() const { return entries_.size() + history_.size(); }
+  std::size_t total_size() const { return entries_.size() + history_.size(); }
 
   const Key replace(bool x_in_B2) 
   {

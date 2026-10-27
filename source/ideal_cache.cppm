@@ -48,9 +48,9 @@ template <typename Key = int> class ideal_cache {
 
   public:
 
-  explicit ideal_cache(std::size_t capacity, std::size_t data_size, std::vector<Key> data): 
+  explicit ideal_cache(std::size_t capacity, std::vector<Key> data): 
     capacity_(capacity), 
-    data_size_(data_size), 
+    data_size_(data.size()), 
     data_(std::move(data)) 
     { 
       for (std::size_t i = 0; i < data_size_; i++) stats_[data_[i]].push_back(i); 
@@ -94,8 +94,7 @@ template <typename Key = int> class ideal_cache {
 export template <typename Key = int>
 std::size_t ideal_hits_check(std::size_t capacity, std::vector<Key> data)
 {
-    const auto size = data.size();
-    ideal_cache<Key> cache(capacity, size, std::move(data));
+    ideal_cache<Key> cache(capacity, std::move(data));
     return cache.hits_check();
 }
 
