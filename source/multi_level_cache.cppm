@@ -6,9 +6,16 @@ module;
 #include <optional>
 #include <stdexcept>
 #include <utility>
+#include <initializer_list>
 
 export module multi_level_cache;
+
 import abstract_cache;
+import arc_cache;
+import lfu_cache;
+import lru_cache;
+import lirs_cache;
+import two_queue_cache;
 
 export namespace caches {
 
@@ -24,11 +31,9 @@ template <typename Value, typename Key = int>
 class multi_level_cache : public abstract_cache<Value, Key>
 {
   using Base = abstract_cache<Value, Key>;
-
   std::vector<std::unique_ptr<abstract_cache<Value, Key>>> levels_;
 
-  std::optional<Key> insert_into_levels(
-    std::size_t count, const Key& key, const Value& value)
+  std::optional<Key> insert_into_levels(std::size_t count, const Key& key, const Value& value)
   {
     std::optional<Key> victim_key;
     for (std::size_t cursor = count; cursor > 0; --cursor)
@@ -52,25 +57,62 @@ class multi_level_cache : public abstract_cache<Value, Key>
     return insert_into_levels(levels_.size(), key, value);
   }
 
+  using LevelConfig = std::pair<CacheTypes, std::size_t>;
+  using Levels = std::vector<std::unique_ptr<Base>>;
+
+  static Levels make_levels(std::initializer_list<LevelConfig> configs)
+  {
+    Levels levels;
+    levels.reserve(configs.size());
+    std::size_t previous_capacity = 0;
+
+    for (const auto& [type, capacity] : configs)
+    {
+      if (!capacity)
+        throw std::invalid_argument("Cache levels must have positive capacity");
+      if (capacity < previous_capacity)
+        throw std::invalid_argument("Cache level capacities must be nondecreasing from L1 downwards");
+      previous_capacity = capacity;
+
+      switch (type)
+      {
+        case CacheTypes::ARC:
+          levels.push_back(
+            std::make_unique<arc_cache<Value, Key>>(capacity));
+          break;
+
+        case CacheTypes::LFU:
+          levels.push_back(
+            std::make_unique<lfu_cache<Value, Key>>(capacity));
+          break;
+
+        case CacheTypes::LRU:
+          levels.push_back(
+            std::make_unique<lru_cache<Value, Key>>(capacity));
+          break;
+
+        case CacheTypes::LIRS:
+          levels.push_back(
+            std::make_unique<lirs_cache<Value, Key>>(capacity));
+          break;
+
+        case CacheTypes::TWO_QUEUE:
+          levels.push_back(
+            std::make_unique<two_queue_cache<Value, Key>>(capacity));
+          break;
+
+        default:
+          throw std::invalid_argument("Unknown cache type");
+      }
+    }
+
+    return levels;
+  }
+
   public:
 
-  explicit multi_level_cache(
-    std::vector<std::unique_ptr<abstract_cache<Value, Key>>> levels)
-    : levels_(std::move(levels))
-  {
-    std::size_t previous_capacity = 0;
-    for (const auto& level : levels_)
-    {
-      if (!level || !level->capacity())
-        throw std::invalid_argument("Cache levels must be non-null and have positive capacity");
-
-      const std::size_t current_capacity = level->capacity();
-      if (current_capacity < previous_capacity)
-        throw std::invalid_argument("Cache level capacities must be nondecreasing from L1 downwards");
-
-      previous_capacity = current_capacity;
-    }
-  }
+  explicit multi_level_cache(std::initializer_list<LevelConfig> configs)
+  : levels_(make_levels(configs)) {}
 
   bool full() const override
   {
