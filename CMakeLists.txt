@@ -5,6 +5,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(BUILD_TESTS "Build tests" ON)
+option(BUILD_BENCHMARKS "Build the cache benchmark runner" OFF)
 
 include(cmake/CPM.cmake)
 include(cmake/packages.cmake)
@@ -28,4 +29,8 @@ target_compile_features(caches PUBLIC cxx_std_23)
 if(BUILD_TESTS)
   enable_testing()
   add_subdirectory(tests)
+endif()
+
+if(BUILD_BENCHMARKS)
+  add_subdirectory(benchmarks)
 endif()
