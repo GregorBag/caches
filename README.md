@@ -46,13 +46,6 @@ Run all tests through CTest, showing output on failure:
 ctest --test-dir build --output-on-failure
 ```
 
-Check Python benchmark budget generation and argument validation (no Matplotlib
-installation needed):
-
-```bash
-python3 -m unittest discover -s benchmarks -p 'test_*.py'
-```
-
 ## Hit-rate benchmark
 
 Build the C++ runner from the repository root:
@@ -161,7 +154,7 @@ rounded to the nearest integer (halves up), then capped at
 `floor(max_ratio * universe_size)` so the actual budget never exceeds the limit.
 For 32 keys and `--max-ratio 0.3`, the maximum budget is 9 entries, not 10.
 Repeated rounded budgets are merged.
-No `--universe-size` argument is needed. 1024 in the supplied traces is the key-space size,
+No `--universe-size` argument is needed. The first line gives the key-space size,
 not necessarily the number of different keys observed in a file. Sizes are in
 resident entries, excluding policy metadata. Each level's proportional share
 is rounded down; the remainder goes to the last level. Zero-sized levels are
@@ -176,22 +169,30 @@ Curves show top mean-hit-rate strategies; identical curves are shown once.
 CSV keeps every configuration. Rates are percentages, and the X axis uses the
 actual budget divided by that file's key-space size.
 
-The overall ranking rewards positive outliers and penalizes negative ones.
-For each trace/budget, using hit rates in percentage points:
+The overall ranking uses the geometric mean of the ratio of IDEAL misses to
+the strategy's misses. IDEAL uses the same total budget at each measurement:
 
 ```text
-center = median(rates)
-scale  = max(1, 1.4826 * median(abs(rate - center)))
-z      = clamp((rate - center) / scale, -3, 3)
-score  = z + 0.25 * max(z, 0)^2 - 0.5 * max(-z, 0)^2
+miss_ratio      = (requests - ideal_hits) / (requests - hits)
+trace_log_ratio = mean(log(miss_ratio) over that trace's budget points)
+score           = 100 * exp(mean(trace_log_ratio over traces))
 ```
 
-Scores are averaged over each trace's budget points, then equally over traces; denser
-sampling therefore gives a region more weight. All selected configurations
-participate in the reference distribution, including equivalent ones. IDEAL is
-excluded. Equal scores receive equal ranks; plotted top-K ties are selected
-alphabetically. This is a configurable experiment's relative ranking, not a
-claim of a universally optimal strategy.
+Higher is better. A score of 100 means matching IDEAL at every point; a score
+of 50 means the geometric mean of the strategy/IDEAL miss-count ratio is 2.
+This score is an index, not a hit-rate percentage. Calculations use integer
+miss counts rather than subtracting rounded hit-rate percentages from 100.
+Nonempty traces start with empty caches, so even IDEAL has at least one miss;
+zero-miss IDEAL results are rejected as inconsistent runner output.
+
+Each trace has equal weight regardless of how many distinct budget points it
+has. Points within a trace have equal weight; denser sampling gives a region
+more weight. Adding or removing other configurations cannot change a strategy's
+score or the ordering within an unchanged group, provided traces, budgets,
+and capacities stay the same. IDEAL is the fixed reference and is excluded
+from the ranking. Equal scores receive equal ranks; plotted top-K ties are
+selected alphabetically. Changing the traces, budget range, or splits can
+still change the results.
 
 The runner is also usable directly; it prints one `strategy hits requests` line
 per combination (5, 25, or 125 lines for 1, 2, or 3 capacities).
