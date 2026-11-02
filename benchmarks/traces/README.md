@@ -8,24 +8,24 @@
 | --- | --- |
 | `01_uniform_random.txt` | Uniform random keys. |
 | `02_zipf_1_2.txt` | Zipf popularity: weight `1/k^1.2`. |
-| `03_normal_center.txt` | Normal distribution: mean 512.5, standard deviation 100. |
-| `04_discrete_exponential.txt` | Key weight halves every 64 keys. |
-| `05_bimodal.txt` | Two equal peaks near 256 and 768. |
+| `03_normal_center.txt` | Normal distribution: mean 2048.5, standard deviation 400. |
+| `04_discrete_exponential.txt` | Key weight halves every 256 keys. |
+| `05_bimodal.txt` | Two equal peaks near 1024 and 3072. |
 | `06_one_hot_90_percent.txt` | 90% key 1; 10% other keys. |
-| `07_hot_set_80_percent.txt` | 80% keys 1..32; 20% other keys. |
-| `08_sequential_forward.txt` | Eight scans from 1 to 1024. |
-| `09_shuffled_full_scans.txt` | Eight full scans, each in a new random order. |
+| `07_hot_set_80_percent.txt` | 80% keys 1..128; 20% other keys. |
+| `08_sequential_forward.txt` | Two full scans in key order. |
+| `09_shuffled_full_scans.txt` | Two full scans, each in a new random order. |
 | `10_cycle_257.txt` | Repeating cycle of 257 keys. |
-| `11_hot_set_and_scans.txt` | Alternate 512 hot requests and a 512-key scan. |
-| `12_popularity_switch.txt` | Switch from keys 1..64 to 513..576 halfway through. |
-| `13_rotating_working_set.txt` | A 128-key window shifts by 96 every 1024 requests. |
+| `11_hot_set_and_scans.txt` | Alternate 2048 hot requests and a 2048-key scan. |
+| `12_popularity_switch.txt` | Switch from keys 1..256 to 2049..2304 halfway through. |
+| `13_rotating_working_set.txt` | A 512-key window shifts by 384 every 1024 requests. |
 | `14_web_sessions.txt` | 128 sessions: shared page, session pages, then new pages. |
 | `15_local_random_walk.txt` | Steps of -2..2 around a ring; 2% random jumps. |
 | `16_database_mixed.txt` | 60% hot keys, 30% moving reads, 10% other keys. |
-| `17_three_frequency_tiers.txt` | 50% keys 1..32, 30% 33..256, 20% 257..1024. |
+| `17_three_frequency_tiers.txt` | 50% keys 1..128, 30% 129..1024, 20% 1025..4096. |
 | `18_alternating_hot_regions.txt` | Switch hot regions every 512 requests; 30% background. |
-| `19_drifting_popularity.txt` | Popularity peak moves from 128 to 896; 25% background. |
-| `20_changing_working_sets.txt` | New 128-key set every 1024 requests; 25% background. |
+| `19_drifting_popularity.txt` | Popularity peak moves from 512 to 3584; 25% background. |
+| `20_changing_working_sets.txt` | New 512-key set every 1024 requests; 25% background. |
 | `21_returning_working_sets.txt` | Revisit four sets: A-B-C-A-D-B-A-C; 20% background. |
 | `22_flash_crowd.txt` | Temporary popularity spike for a new set, then return. |
 | `23_short_group_bursts.txt` | Bursts of 16..48 requests to eight keys; 20% background. |
