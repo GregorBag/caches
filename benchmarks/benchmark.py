@@ -88,12 +88,12 @@ def read_traces(args, splits):
     return traces
 
 
-def budgets_for(universe, step, max_ratio=1):
-    """Include the upper endpoint without rounding any budget above the limit."""
+def budgets_by_ratio(universe, step, max_ratio=1):
+    """Map the common ratio grid to rounded budgets capped at the upper limit."""
     step, limit = Decimal(str(step)), Decimal(str(max_ratio))
     maximum = int(limit * universe)
     ratios = [step * i for i in range(1, math.ceil(limit / step))] + [limit]
-    return sorted({min(maximum, int(r * universe + Decimal("0.5"))) for r in ratios})
+    return {r: min(maximum, int(r * universe + Decimal("0.5"))) for r in ratios}
 
 
 def benchmark_trace(runner, path, universe, budgets, splits, writer):
@@ -114,7 +114,7 @@ def benchmark_trace(runner, path, universe, budgets, splits, writer):
                 log_ratios[name].append(math.log((count - ideal_hits) / (count - hits)))
                 writer.writerow([path.name, universe, budget, budget / universe, name,
                                  ":".join(map(str, sizes)), count, hits, rate, ideal_rate])
-    return curves, {name: statistics.fmean(values) for name, values in log_ratios.items()}
+    return curves, log_ratios
 
 
 def geometric_ranking(trace_log_ratios):
@@ -124,7 +124,8 @@ def geometric_ranking(trace_log_ratios):
                   key=lambda item: (-item[1], item[0]))
 
 
-def plot_curves(plt, curves, x, top, path):
+def plot_curves(plt, curves, x, top, path, *, ylabel="Hit rate (%)",
+                xlabel="Total cache budget / universe size"):
     fig, ax = plt.subplots(figsize=(9, 5))
     seen = set()
     for name in sorted(curves, key=lambda n: (-statistics.fmean(curves[n]), n)):
@@ -136,8 +137,7 @@ def plot_curves(plt, curves, x, top, path):
         if len(seen) == top:
             break
     ax.plot(x, curves["IDEAL"], "k--", linewidth=1, label="IDEAL(total budget)")
-    ax.set(xlabel="Total cache budget / universe size", ylabel="Hit rate (%)",
-           ylim=(0, 101), title=path.stem)
+    ax.set(xlabel=xlabel, ylabel=ylabel, ylim=(0, 101), title=path.stem)
     ax.grid(alpha=0.2)
     ax.legend(fontsize="small")
     fig.tight_layout()
@@ -168,6 +168,22 @@ def save_ranking(plt, trace_log_ratios, output, top):
         print(f"{name:20} {score:.3f}")
 
 
+def save_ratio_ranking(plt, logs_by_ratio, output, top):
+    ratios = sorted(logs_by_ratio)
+    curves = defaultdict(list)
+    with (output / "ranking_by_ratio.csv").open("w", newline="") as stream:
+        writer = csv.writer(stream)
+        writer.writerow(["ratio", "strategy", "score"])
+        for ratio in ratios:
+            for name, score in geometric_ranking(logs_by_ratio[ratio]):
+                curves[name].append(score)
+                writer.writerow([float(ratio), name, score])
+    curves["IDEAL"] = [100] * len(ratios)
+    plot_curves(plt, curves, list(map(float, ratios)), top, output / "ranking_by_ratio.png",
+                xlabel="Requested total cache budget / universe size",
+                ylabel="Geometric score (100 = IDEAL)")
+
+
 def main():
     args = arguments()
     splits = [weights for n, weights in enumerate(([1], args.split_2, args.split_3), 1)
@@ -179,6 +195,7 @@ def main():
 
     args.output.mkdir(parents=True)  # Require a new directory to avoid mixing experiments.
     trace_log_ratios = defaultdict(list)
+    logs_by_ratio = defaultdict(lambda: defaultdict(list))
     print(f"{len(traces)} traces; levels {args.levels}; "
           f"ratio step {args.step}, maximum {args.max_ratio}", flush=True)
     with (args.output / "results.csv").open("w", newline="") as stream:
@@ -186,15 +203,20 @@ def main():
         writer.writerow(["trace", "universe_size", "budget", "ratio", "strategy", "capacities", "requests",
                          "hits", "hit_rate", "ideal_hit_rate"])
         for path, universe in traces.items():
-            budgets = budgets_for(universe, args.step, args.max_ratio)
+            budget_by_ratio = budgets_by_ratio(universe, args.step, args.max_ratio)
+            budgets = sorted(set(budget_by_ratio.values()))
             curves, log_ratios = benchmark_trace(args.runner, path, universe, budgets, splits, writer)
-            for name, value in log_ratios.items():
-                trace_log_ratios[name].append(value)
+            for name, values in log_ratios.items():
+                trace_log_ratios[name].append(statistics.fmean(values))
+                by_budget = dict(zip(budgets, values))
+                for ratio, budget in budget_by_ratio.items():
+                    logs_by_ratio[ratio][name].append(by_budget[budget])
             stream.flush()
             plot_curves(plt, curves, [b / universe for b in budgets], args.top,
                         args.output / f"{path.stem}.png")
             print(f"{path.name}: done", flush=True)
     save_ranking(plt, trace_log_ratios, args.output, args.top)
+    save_ratio_ranking(plt, logs_by_ratio, args.output, args.top)
 
 
 if __name__ == "__main__":
