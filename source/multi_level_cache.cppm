@@ -28,7 +28,7 @@ enum class CacheTypes {
 };
 
 template <typename Value, typename Key = int>
-class multi_level_cache : public abstract_cache<Value, Key>
+class multi_level_cache final : public abstract_cache<Value, Key>
 {
   using Base = abstract_cache<Value, Key>;
   std::vector<std::unique_ptr<abstract_cache<Value, Key>>> levels_;

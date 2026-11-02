@@ -14,7 +14,7 @@ import abstract_cache;
 export namespace caches {
 
 template <typename Value, typename Key = int> 
-class lirs_cache : public abstract_cache<Value, Key>
+class lirs_cache final : public abstract_cache<Value, Key>
 {
   using ListIt = typename std::list<Key>::iterator;
 

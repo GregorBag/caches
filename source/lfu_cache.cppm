@@ -11,7 +11,7 @@ import abstract_cache;
 export namespace caches {
 
 template <typename Value, typename Key = int>
-class lfu_cache : public abstract_cache<Value, Key> 
+class lfu_cache final : public abstract_cache<Value, Key> 
 { 
   const std::size_t capacity_;
   std::size_t min_freq_ = 0;
