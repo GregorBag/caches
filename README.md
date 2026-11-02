@@ -112,8 +112,8 @@ Python benchmark arguments:
 
 | Argument | Default | Description |
 | --- | --- | --- |
-| `--data-dir PATH` | `cache-tests` | Directory containing input traces. |
-| `--pattern GLOB` | `*.txt` | Filename pattern inside `--data-dir`; quote it, e.g. `--pattern '18_*'` for one trace. |
+| `--data-dir PATH` | `benchmarks/traces` | Directory containing input traces. |
+| `--pattern GLOB` | `*.txt` | Filename pattern inside `--data-dir`; quote it, e.g. `--pattern '16_*'` for one trace. |
 | `--runner PATH` | `build/benchmarks/cache_bench_runner` | Compiled C++ runner to execute. |
 | `--levels N [N ...]` | `1 2 3` | Level counts to measure; each value must be 1, 2, or 3. Duplicates are removed. All algorithm combinations run for each selected count. |
 | `--split-2 W1 W2` | `1 3` | Relative shares of the total budget for two levels, from L1 downwards; positive nondecreasing integers. |
@@ -198,9 +198,9 @@ per combination (5, 25, or 125 lines for 1, 2, or 3 capacities).
 With `--ideal`, it prints a single `IDEAL hits requests` line:
 
 ```bash
-./build/benchmarks/cache_bench_runner --trace cache-tests/18_database_mixed.txt \
+./build/benchmarks/cache_bench_runner --trace benchmarks/traces/16_database_mixed.txt \
   --capacities 64 192
-./build/benchmarks/cache_bench_runner --trace cache-tests/18_database_mixed.txt \
+./build/benchmarks/cache_bench_runner --trace benchmarks/traces/16_database_mixed.txt \
   --ideal --capacities 256
 ```
 

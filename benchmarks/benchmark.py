@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def arguments():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--data-dir", type=Path, default=ROOT / "cache-tests",
+    parser.add_argument("--data-dir", type=Path, default=ROOT / "benchmarks" / "traces",
                         help="Directory containing trace files")
     parser.add_argument("--pattern", default="*.txt", help="Trace filename glob")
     parser.add_argument("--runner", type=Path, default=ROOT / "build/benchmarks/cache_bench_runner",
@@ -83,7 +83,8 @@ def read_traces(args, splits):
             capacities(minimum_budget, weights)
         traces[path] = universe
     if not traces:
-        raise ValueError("No trace files matched --pattern")
+        raise ValueError(f"No trace files matched --pattern {args.pattern!r} "
+                         f"in {args.data_dir.resolve()}")
     return traces
 
 
