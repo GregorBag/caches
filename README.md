@@ -1,223 +1,134 @@
 # Caches
 
-C++23 cache library implementing ARC, IDEAL, LFU, LIRS, LRU, and 2Q.
+C++23 library with LRU, LFU, ARC, LIRS, 2Q, inclusive/exclusive multi-level
+caches, and an offline IDEAL reference.
 
 ## Requirements
 
 - Linux
+- GCC 14+
 - CMake 3.28+
-- GCC 14+ (C and C++)
 - Ninja 1.11+
-- Git and internet access to download dependencies
+- Git and internet access to fetch GoogleTest (tests) and CLI11 (runner)
+  through CPM.cmake
+- Python 3 with `venv` and Matplotlib for the Python benchmark
 
-GoogleTest is fetched automatically via CPM.cmake.
+## Build
 
-## Building
-
-Configure and build from the repository root:
+Configure from the repository root:
 
 ```bash
-cmake -S . -B build -G Ninja -DCMAKE_CXX_COMPILER=g++-14 -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B build -G Ninja -DCMAKE_CXX_COMPILER=g++-14 \
+  -DCMAKE_BUILD_TYPE=Release -DBUILD_BENCHMARKS=ON
 ```
-Tests are enabled by default. Add `-DBUILD_TESTS=OFF` to configure a library-only build.
+
+For library only, use `-DBUILD_TESTS=OFF -DBUILD_BENCHMARKS=OFF`.
+
+Build:
 
 ```bash
 cmake --build build -j2
 ```
 
-GCC may print `note: unable to represent further imported source locations`
-when importing C++ modules. This concerns source-location information in compiler
-diagnostics; the note alone is not a build failure. If the build finishes with
-exit code 0 and links the executable, no source changes are needed for this note.
-
-## Running
-
-The project builds a library. Run the test executable directly:
-
-```bash
-./build/tests/cache_tests
-```
-
-## Testing
-
-Run all tests through CTest, showing output on failure:
+Run tests:
 
 ```bash
 ctest --test-dir build --output-on-failure
 ```
 
-## Hit-rate benchmark
-
-Build the C++ runner from the repository root:
+Install Python dependencies once:
 
 ```bash
-cmake -S . -B build -G Ninja -DCMAKE_CXX_COMPILER=g++-14 \
-  -DCMAKE_BUILD_TYPE=Release -DBUILD_BENCHMARKS=ON
-cmake --build build --target cache_bench_runner -j2
+python3 -m venv .venv
+.venv/bin/python -m pip install -r benchmarks/requirements.txt
 ```
 
-The Python frontend additionally needs Python 3 and Matplotlib from
-`benchmarks/requirements.txt`. `.venv` is a local directory containing an isolated
-Python environment and its installed packages. It keeps these dependencies
-separate from system Python. It is optional: another Python environment with
-the required Matplotlib version also works. The C++ library, tests, and runner
-do not need Python or `.venv` to run.
+## Benchmark
 
-Set up the Python environment **once**. On Debian/Ubuntu, install venv support
-before creating it:
+Python calls the C++ runner to compare hit rates across traces and cache budgets.
+It tests all ordered policy combinations, including repetitions: 5, 25, or 125
+strategies for 1, 2, or 3 levels. IDEAL uses one cache with the same total budget.
 
-```bash
-sudo apt update
-sudo apt install python3-venv
-python3 -m venv .venv && .venv/bin/python -m pip install -r benchmarks/requirements.txt
-```
+Exclusive hierarchies are the default. With `--inclusive`, total hit rate
+depends on the last level.
 
-If `venv` reports that `ensurepip` is unavailable, install the venv package for
-the Python version used to create it: for Python 3.12,
-`sudo apt install python3.12-venv`. Then repeat the environment creation and
-dependency installation command above; an existing `.venv` can be reused.
-
-Check the environment:
-
-```bash
-.venv/bin/python -m pip check
-.venv/bin/python -c "import matplotlib; print(matplotlib.__version__)"
-```
-
-`Requirement already satisfied` means a dependency is already installed; it is
-not an error. Once these checks pass, use the existing environment for subsequent
-runs. There is no need to recreate it or install dependencies each time.
-
-Run from the repository root (list arguments are **space-separated**).
-Calling `.venv/bin/python` directly selects the environment; activation with
-`source .venv/bin/activate` is optional
-([Python documentation](https://docs.python.org/3/library/venv.html#how-venvs-work)):
+[30 synthetic traces](benchmarks/traces/README.md) are included.
+Trace format: positive key-space size, positive request count, then the integer
+keys, one value per line.
 
 ```bash
 .venv/bin/python benchmarks/benchmark.py \
-  --levels 1 2 3 \
-  --split-2 1 3 --split-3 1 2 5 \
-  --step 0.05 --max-ratio 0.3 \
+  --levels 1 2 3 --step 0.05 --max-ratio 0.3 \
   --output results/comparison
 ```
 
-Python benchmark arguments:
-
 | Argument | Default | Description |
 | --- | --- | --- |
-| `--data-dir PATH` | `benchmarks/traces` | Directory containing input traces. |
-| `--pattern GLOB` | `*.txt` | Filename pattern inside `--data-dir`; quote it, e.g. `--pattern '16_*'` for one trace. |
-| `--runner PATH` | `build/benchmarks/cache_bench_runner` | Compiled C++ runner to execute. |
-| `--levels N [N ...]` | `1 2 3` | Level counts to measure; each value must be 1, 2, or 3. Duplicates are removed. All algorithm combinations run for each selected count. |
-| `--split-2 W1 W2` | `1 3` | Relative shares of the total budget for two levels, from L1 downwards; positive nondecreasing integers. |
-| `--split-3 W1 W2 W3` | `1 2 5` | Relative shares for three levels; positive nondecreasing integers. |
-| `--step RATIO` | `0.05` | Spacing between requested cache/data ratios; a finite number greater than 0 and at most 1. |
-| `--max-ratio RATIO` | `1` | Upper limit on total cache budget divided by key-space size; a finite number greater than 0 and at most 1. `0.3` limits measurements to 30%. |
-| `--top N` | `10` | Positive maximum number of distinct strategy curves per trace and ranking bars. IDEAL is drawn additionally; CSV files keep all strategies. |
-| `--output PATH` | `results/benchmark` | New directory for CSV files and PNG plots; must not already exist. Parent directories are created automatically. |
-| `-h`, `--help` | — | Show argument descriptions and defaults, then exit. |
+| `--data-dir PATH` | `benchmarks/traces` | Input trace directory. |
+| `--pattern GLOB` | `*.txt` | Trace filename filter; quote patterns, e.g. `'16_*'`. |
+| `--runner PATH` | `build/benchmarks/cache_bench_runner` | C++ runner executable. |
+| `--levels N [N ...]` | `1 2 3` | Level counts: 1, 2, or 3. |
+| `--exclusive` | On | Use an exclusive hierarchy. |
+| `--inclusive` | Off | Use an inclusive hierarchy; excludes `--exclusive`. |
+| `--split-2 W1 W2` | `1 3` | Capacity weights for two levels, L1 first. |
+| `--split-3 W1 W2 W3` | `1 2 5` | Capacity weights for three levels, L1 first. |
+| `--step RATIO` | `0.05` | Cache/data ratio step; `0 < RATIO <= 1`. |
+| `--max-ratio RATIO` | `1` | Maximum total budget / key-space size; `0 < RATIO <= 1`. |
+| `--top N` | `10` | Positive limit on distinct curves and ranking bars; line plots also show IDEAL. |
+| `--output PATH` | `results/benchmark` | Output directory; must not already exist. |
+| `-h`, `--help` | — | Show help and exit. |
 
-Default paths are relative to the repository root; paths supplied explicitly
-are relative to the current working directory unless absolute.
+Default paths use the repository root; explicit relative paths use the current
+directory. Split weights must be positive, nondecreasing integers.
 
-Each trace starts with its positive key-space size on the first line, then a
-positive request count, followed by that many integer keys. For example:
+Ratios include `--max-ratio`. Budget = `ratio * key_space_size`, rounded to the
+nearest integer (halves up) and capped at `floor(max_ratio * key_space_size)`.
+Duplicate budgets run once. Level shares are rounded down; the last gets the
+remainder. Capacities must be nonzero and count resident entries only.
 
-```text
-1024
-4
-512
-512
-1
-512
-```
+### Output
 
-All five algorithms (LRU, LFU, ARC, LIRS, and 2Q) always participate.
-Python calls C++ once per selected level count; the runner enumerates every
-ordered algorithm combination **with repetitions**, reading the trace once per
-invocation. With 1–3 levels there are 155 configurations per trace/budget.
-Each configuration starts empty and counts only the
-boolean result of `lookup_update()`. IDEAL runs once per trace/budget using the
-entire budget. The current inclusive hierarchy's total hit rate depends on its
-last level; all combinations are nevertheless executed.
+- `results.csv`: all measurements and IDEAL hit rates.
+- `<trace>.png`: hit rate (%) against actual budget / key-space size.
+- `ranking.csv` and `ranking.png`: overall strategy scores.
+- `ranking_by_ratio.csv` and `ranking_by_ratio.png`: scores across traces at
+  each requested ratio.
 
-`--step` sets the cache/data ratio spacing, while `--max-ratio` sets the upper
-limit. The defaults (`0.05` and `1`) give 20 requested points. Ratios increase
-by the step up to the limit, and the upper endpoint is always included:
-`--step 0.3` gives `0.3, 0.6, 0.9, 1`;
-`--step 0.1 --max-ratio 0.3` gives `0.1, 0.2, 0.3`;
-`--step 0.2 --max-ratio 0.3` gives `0.2, 0.3`.
-If the step exceeds the limit, only the upper endpoint is measured.
+Line plots select the highest mean curves and show identical curves once.
+CSV files keep all strategies.
 
-The total budget is `ratio * universe_size`, using each file's first line,
-rounded to the nearest integer (halves up), then capped at
-`floor(max_ratio * universe_size)` so the actual budget never exceeds the limit.
-For 32 keys and `--max-ratio 0.3`, the maximum budget is 9 entries, not 10.
-Repeated rounded budgets are merged.
-No `--universe-size` argument is needed. The first line gives the key-space size,
-not necessarily the number of different keys observed in a file. Sizes are in
-resident entries, excluding policy metadata. Each level's proportional share
-is rounded down; the remainder goes to the last level. Zero-sized levels are
-rejected: increase `--step` or `--max-ratio`, or select fewer levels.
-Splits must be positive and nondecreasing.
-For budget 256 the default sizes are `256`, `64:192`, and `32:64:160`.
+### Score
 
-The output directory must be new. It receives `results.csv` (all measurements,
-key-space size, actual cache sizes and hit rates), one PNG per trace,
-`ranking.csv`, and `ranking.png`.
-Curves show top mean-hit-rate strategies; identical curves are shown once.
-CSV keeps every configuration. Rates are percentages, and the X axis uses the
-actual budget divided by that file's key-space size.
-
-The overall ranking uses the geometric mean of the ratio of IDEAL misses to
-the strategy's misses. IDEAL uses the same total budget at each measurement:
+Scores compare miss counts with IDEAL:
 
 ```text
 miss_ratio      = (requests - ideal_hits) / (requests - hits)
-trace_log_ratio = mean(log(miss_ratio) over that trace's budget points)
+trace_log_ratio = mean(log(miss_ratio) over distinct budgets in one trace)
 score           = 100 * exp(mean(trace_log_ratio over traces))
+score_at_ratio  = 100 * exp(mean(log(miss_ratio_at_ratio) over traces))
 ```
 
-Higher is better. A score of 100 means matching IDEAL at every point; a score
-of 50 means the geometric mean of the strategy/IDEAL miss-count ratio is 2.
-This score is an index, not a hit-rate percentage. Calculations use integer
-miss counts rather than subtracting rounded hit-rate percentages from 100.
-Nonempty traces start with empty caches, so even IDEAL has at least one miss;
-zero-miss IDEAL results are rejected as inconsistent runner output.
+Traces have equal weight, as do distinct budgets within each trace.
+100 matches IDEAL; 50 means twice as many misses on a weighted geometric average.
+Scores are not hit-rate percentages. IDEAL is excluded from the ranking.
 
-Each trace has equal weight regardless of how many distinct budget points it
-has. Points within a trace have equal weight; denser sampling gives a region
-more weight. Adding or removing other configurations cannot change a strategy's
-score or the ordering within an unchanged group, provided traces, budgets,
-and capacities stay the same. IDEAL is the fixed reference and is excluded
-from the ranking. Equal scores receive equal ranks; plotted top-K ties are
-selected alphabetically. Changing the traces, budget range, or splits can
-still change the results.
+## C++ runner
 
-The runner is also usable directly; it prints one `strategy hits requests` line
-per combination (5, 25, or 125 lines for 1, 2, or 3 capacities).
-With `--ideal`, it prints a single `IDEAL hits requests` line:
+Prints `strategy hits requests` per combination. Policy names run from L1
+downwards, e.g. `lru>arc`.
 
 ```bash
-./build/benchmarks/cache_bench_runner --trace benchmarks/traces/16_database_mixed.txt \
-  --capacities 64 192
-./build/benchmarks/cache_bench_runner --trace benchmarks/traces/16_database_mixed.txt \
-  --ideal --capacities 256
+./build/benchmarks/cache_bench_runner \
+  --trace benchmarks/traces/16_database_mixed.txt --capacities 64 192
 ```
 
-C++ runner arguments:
+| Argument | Description |
+| --- | --- |
+| `--trace PATH` | Required trace file in the format above. |
+| `--capacities N [N ...]` | Required: 1–3 positive, nondecreasing integer capacities, from L1 downwards. |
+| `--ideal` | Run only IDEAL; requires exactly one capacity. |
+| `--exclusive` | Use an exclusive hierarchy (default). |
+| `--inclusive` | Use an inclusive hierarchy. |
+| `-h`, `--help` | Show help and exit. |
 
-| Argument | Default | Description |
-| --- | --- | --- |
-| `--trace PATH` | Required | Existing trace file in the format described above. |
-| `--capacities N [N ...]` | Required | 1–3 positive integer capacities, from L1 downwards, in nondecreasing order. Their count selects the number of levels. With `--ideal`, supply exactly one capacity. |
-| `--ideal` | Off | Run only IDEAL with the supplied capacity instead of all algorithm combinations. |
-| `-h`, `--help` | — | Show help and exit. |
-
-The runner accepts absolute capacities. `--step`, `--max-ratio`, and the other
-experiment and plotting options belong to the Python frontend.
-
-Only Matplotlib is needed beyond the Python standard library. There are no
-subcommands, resume/checkpoints, configuration files, parallel workers or
-report-only mode. The simple Python → C++ invocation follows the approach used
-in [nhwc](https://github.com/lon3ry/nhwc/tree/main/bench/source).
+`--ideal`, `--exclusive`, and `--inclusive` are mutually exclusive.
