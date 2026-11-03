@@ -16,6 +16,7 @@ export namespace caches {
 template <typename Value, typename Key = int> 
 class lirs_cache final : public abstract_cache<Value, Key>
 {
+  using EvictedEntry = typename abstract_cache<Value, Key>::EvictedEntry;
   using ListIt = typename std::list<Key>::iterator;
 
   const std::size_t capacity_;
@@ -47,10 +48,11 @@ class lirs_cache final : public abstract_cache<Value, Key>
   std::unordered_map<Key, SEntry> S_map_; 
   std::unordered_map<Key, QEntry> Q_map_;
 
-  std::optional<Key> evict_if_full()
+  std::optional<EvictedEntry> evict_if_full()
   {
     if (!full()) return std::nullopt;
     Key victim_key = Q_.front();
+    EvictedEntry victim{victim_key, *Q_map_.at(victim_key).value};
 
     auto s_hit = S_map_.find(victim_key);
     if (s_hit != S_map_.end()) s_hit->second.is_resident = false;
@@ -59,7 +61,7 @@ class lirs_cache final : public abstract_cache<Value, Key>
     Q_.pop_front();
 
     hir_size_--;
-    return victim_key;
+    return victim;
   }
 
   void queue_push_back(const Key& key, std::unique_ptr<Value> value)
@@ -78,18 +80,19 @@ class lirs_cache final : public abstract_cache<Value, Key>
     S_.splice(S_.begin(), S_, entry.position);
   }
 
-  std::optional<Key> single_capacity_insert(const Key& key, const Value& value) 
+  std::optional<EvictedEntry> single_capacity_insert(const Key& key, const Value& value)
   {
-    std::optional<Key> victim_key = std::nullopt;
+    std::optional<EvictedEntry> victim = std::nullopt;
     if (hir_size_ == 1) 
     { 
-      victim_key = Q_.front();
+      const Key& victim_key = Q_.front();
+      victim.emplace(victim_key, *Q_map_.at(victim_key).value);
       Q_.pop_front(); 
       Q_map_.clear(); hir_size_--; 
     }
     
     queue_push_back(key, std::make_unique<Value>(value));
-    return victim_key;
+    return victim;
   }
 
   void prune_stack() 
@@ -114,9 +117,9 @@ class lirs_cache final : public abstract_cache<Value, Key>
     prune_stack();
   }
 
-  std::optional<Key> insert_new_page (const Key& key, const Value& value) 
+  std::optional<EvictedEntry> insert_new_page (const Key& key, const Value& value)
   {
-    std::optional<Key> victim_key = evict_if_full();
+    auto victim = evict_if_full();
 
     if (lir_size_ == lir_capacity_) 
     {
@@ -124,20 +127,19 @@ class lirs_cache final : public abstract_cache<Value, Key>
       S_.push_front(key);
       S_map_.emplace(key, SEntry{nullptr, Kind::HIR, true, S_.begin()});
 
-      return victim_key;
+      return victim;
     } 
 
     S_.push_front(key);
     S_map_.emplace(key, SEntry{std::make_unique<Value>(value), Kind::LIR, true, S_.begin()});
 
     lir_size_++;
-    return victim_key;
+    return victim;
   }
   
-  std::optional<Key> insert(const Key& key, const Value& value) override
+  std::optional<EvictedEntry> insert(const Key& key, const Value& value) override
   {
-    std::optional<Key> victim_key = std::nullopt;
-    if (!capacity_) return victim_key;
+    if (!capacity_) return std::nullopt;
     if (capacity_ == 1) return single_capacity_insert(key, value);
 
     auto s_hit = S_map_.find(key);
@@ -145,11 +147,11 @@ class lirs_cache final : public abstract_cache<Value, Key>
     {
       //hit NonResHir in S
       auto& entry = s_hit->second;
-      victim_key = evict_if_full();
+      auto victim = evict_if_full();
       promote_to_lir(entry, std::make_unique<Value>(value));
       if (lir_size_ > lir_capacity_) demote_oldest_lir();
       
-      return victim_key;
+      return victim;
     }
 
     //unknown hit

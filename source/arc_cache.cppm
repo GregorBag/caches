@@ -14,6 +14,7 @@ export namespace caches {
 template <typename Value, typename Key = int>
 class arc_cache final : public abstract_cache<Value, Key>
 {
+  using EvictedEntry = typename abstract_cache<Value, Key>::EvictedEntry;
   using ListIt = typename std::list<Key>::iterator;
 
   enum class ResidentQueue { T1, T2 };
@@ -43,23 +44,25 @@ class arc_cache final : public abstract_cache<Value, Key>
 
   std::size_t total_size() const { return entries_.size() + history_.size(); }
 
-  const Key replace(bool x_in_B2) 
+  EvictedEntry replace(bool x_in_B2)
   {
     if (!T1_.empty() && (T1_.size() > p_ || (x_in_B2 && T1_.size() == p_))) 
     {
       Key victim_key = T1_.back();
+      EvictedEntry victim{victim_key, entries_.at(victim_key).value};
       entries_.erase(victim_key);
 
       B1_.splice(B1_.begin(), T1_, --T1_.end());
       history_.emplace(victim_key, HistoryEntry{HistoryQueue::B1, B1_.begin()});
-      return victim_key;
+      return victim;
     }
     Key victim_key = T2_.back();
+    EvictedEntry victim{victim_key, entries_.at(victim_key).value};
     entries_.erase(victim_key);
 
     B2_.splice(B2_.begin(), T2_, --T2_.end());
     history_.emplace(victim_key, HistoryEntry{HistoryQueue::B2, B2_.begin()});
-    return victim_key;
+    return victim;
   }
 
   template <typename Entry>
@@ -126,10 +129,10 @@ class arc_cache final : public abstract_cache<Value, Key>
 
   private:
 
-  std::optional<Key> insert(const Key& key, const Value& value) override
+  std::optional<EvictedEntry> insert(const Key& key, const Value& value) override
   {
     if (!capacity_) return std::nullopt;
-    std::optional<Key> victim_key = std::nullopt;
+    std::optional<EvictedEntry> victim = std::nullopt;
     auto history_hit = history_.find(key);
 
     if (history_hit != history_.end()) {
@@ -141,28 +144,29 @@ class arc_cache final : public abstract_cache<Value, Key>
         T2_.splice(T2_.begin(), B1_, history_entry.position);
         history_.erase(key);
 
-        if (full()) victim_key = replace(false);
+        if (full()) victim.emplace(replace(false));
 
         entries_.emplace(key, ResidentEntry{value, ResidentQueue::T2, T2_.begin()});
-        return victim_key;
+        return victim;
       }
       p_decrease();
       
       T2_.splice(T2_.begin(), B2_, history_entry.position);
       history_.erase(key);
 
-      if (full()) victim_key = replace(true);
+      if (full()) victim.emplace(replace(true));
 
       entries_.emplace(key, ResidentEntry{value, ResidentQueue::T2, T2_.begin()});
-      return victim_key;
+      return victim;
     }
 
     if (T1_.size() + B1_.size() >= capacity_) {
       if (T1_.size() < capacity_) {
         erase_back_block(B1_, history_);
-        if (full()) victim_key = replace(false);
+        if (full()) victim.emplace(replace(false));
       } else {
-        victim_key = T1_.back();
+        const Key& victim_key = T1_.back();
+        victim.emplace(victim_key, entries_.at(victim_key).value);
         erase_back_block(T1_, entries_);
       }
 
@@ -171,13 +175,13 @@ class arc_cache final : public abstract_cache<Value, Key>
         if (total_size() == 2 * capacity_) {
           erase_back_block(B2_, history_);
         }
-        if (full()) victim_key = replace(false);
+        if (full()) victim.emplace(replace(false));
       }
     }
 
     T1_.push_front(key);
     entries_.emplace(key, ResidentEntry{value, ResidentQueue::T1, T1_.begin()});
-    return victim_key;
+    return victim;
   }
 };
 

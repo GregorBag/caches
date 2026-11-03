@@ -2,17 +2,24 @@ module;
 
 #include <cstddef>
 #include <optional>
+#include <utility>
 
 export module abstract_cache;
 
 export namespace caches {
 
 template <typename Value, typename Key = int> class abstract_cache {
-  virtual std::optional<Key> insert(const Key& key, const Value& value) = 0;
+  protected:
+
+  using EvictedEntry = std::pair<Key, Value>;
+
+  private:
+
+  virtual std::optional<EvictedEntry> insert(const Key& key, const Value& value) = 0;
 
   protected:
 
-  static std::optional<Key> insert_into(
+  static std::optional<EvictedEntry> insert_into(
     abstract_cache& cache, const Key& key, const Value& value)
   {
     return cache.insert(key, value);

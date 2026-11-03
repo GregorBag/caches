@@ -13,6 +13,7 @@ export namespace caches {
 template <typename Value, typename Key = int>
 class lru_cache final : public abstract_cache<Value, Key>
 {
+  using EvictedEntry = typename abstract_cache<Value, Key>::EvictedEntry;
   using ListIt = typename std::list<Key>::iterator;
 
   struct Entry {
@@ -48,19 +49,20 @@ class lru_cache final : public abstract_cache<Value, Key>
 
   private:
 
-  std::optional<Key> insert(const Key& key, const Value& value) override
+  std::optional<EvictedEntry> insert(const Key& key, const Value& value) override
   {
     if (!capacity_) return std::nullopt;
-    std::optional<Key> victim_key = std::nullopt;
+    std::optional<EvictedEntry> victim = std::nullopt;
 
     if (full()) {
-      victim_key = cache_.back();
-      entries_.erase(*victim_key);
+      const Key& victim_key = cache_.back();
+      victim.emplace(victim_key, entries_.at(victim_key).value);
+      entries_.erase(victim_key);
       cache_.pop_back();
     }
     cache_.emplace_front(key);
     entries_.emplace(key, Entry{value, cache_.begin()});
-    return victim_key;
+    return victim;
   }
 
   public:

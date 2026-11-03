@@ -13,6 +13,7 @@ export namespace caches {
 template <typename Value, typename Key = int>
 class two_queue_cache final : public abstract_cache<Value, Key>
 {
+  using EvictedEntry = typename abstract_cache<Value, Key>::EvictedEntry;
   using ListIt = typename std::list<Key>::iterator;
 
   enum class ResidentQueue {
@@ -37,9 +38,10 @@ class two_queue_cache final : public abstract_cache<Value, Key>
   const std::size_t capacity_Ain_ = capacity_ / 4;
   const std::size_t capacity_Aout_ = capacity_ / 2;
 
-  const Key occupancy_solution() {
+  EvictedEntry occupancy_solution() {
     if (a1in_.size() > capacity_Ain_) {
       Key victim_key = a1in_.back();
+      EvictedEntry victim{victim_key, entries_.at(victim_key).value};
       ListIt victim_it = entries_.find(victim_key)->second.position;
 
       entries_.erase(victim_key);
@@ -50,13 +52,14 @@ class two_queue_cache final : public abstract_cache<Value, Key>
         history_.erase(a1out_.back());
         a1out_.pop_back();
       }
-      return victim_key;
+      return victim;
     } 
 
     Key victim_key = am_.back();
+    EvictedEntry victim{victim_key, entries_.at(victim_key).value};
     entries_.erase(am_.back());
     am_.pop_back();
-    return victim_key;
+    return victim;
   }
 
   public:
@@ -100,10 +103,10 @@ class two_queue_cache final : public abstract_cache<Value, Key>
 
   private:
 
-  std::optional<Key> insert(const Key& key, const Value& value) override
+  std::optional<EvictedEntry> insert(const Key& key, const Value& value) override
   {
     if (!capacity_) return std::nullopt;
-    std::optional<Key> victim_key = std::nullopt;
+    std::optional<EvictedEntry> victim = std::nullopt;
     auto history_hit = history_.find(key);
 
     if (history_hit != history_.end()) 
@@ -111,16 +114,16 @@ class two_queue_cache final : public abstract_cache<Value, Key>
       am_.splice(am_.begin(), a1out_, history_hit->second);
       history_.erase(key);
       
-      if (full()) victim_key = occupancy_solution();
+      if (full()) victim.emplace(occupancy_solution());
       
       entries_.emplace(key, Entry{value, ResidentQueue::Am, am_.begin()});
-      return victim_key;
+      return victim;
     }
 
-    if (full()) victim_key = occupancy_solution();
+    if (full()) victim.emplace(occupancy_solution());
     a1in_.emplace_front(key);
     entries_.emplace(key, Entry{value, ResidentQueue::A1in, a1in_.begin()});
-    return victim_key;
+    return victim;
   }
 };
 

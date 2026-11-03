@@ -13,6 +13,7 @@ export namespace caches {
 template <typename Value, typename Key = int>
 class lfu_cache final : public abstract_cache<Value, Key> 
 { 
+  using EvictedEntry = typename abstract_cache<Value, Key>::EvictedEntry;
   const std::size_t capacity_;
   std::size_t min_freq_ = 0;
 
@@ -27,16 +28,17 @@ class lfu_cache final : public abstract_cache<Value, Key>
   std::unordered_map<Key, Entry> entries_;
   std::unordered_map<std::size_t, std::list<Key>> groups_;
 
-  std::optional<Key> insert(const Key& key, const Value& value) override
+  std::optional<EvictedEntry> insert(const Key& key, const Value& value) override
   {
     if (!capacity_) return std::nullopt;
-    std::optional<Key> victim_key = std::nullopt;
+    std::optional<EvictedEntry> victim = std::nullopt;
 
     if (full()) {
       auto& min_group = groups_.at(min_freq_);
-      victim_key = min_group.back();
+      const Key& victim_key = min_group.back();
+      victim.emplace(victim_key, entries_.at(victim_key).value);
 
-      entries_.erase(*victim_key);
+      entries_.erase(victim_key);
       min_group.pop_back();
 
       if (min_group.empty()) groups_.erase(min_freq_);
@@ -48,7 +50,7 @@ class lfu_cache final : public abstract_cache<Value, Key>
     entries_.emplace(key, Entry{value, 1, group_freq_1.begin()});
 
     min_freq_ = 1;
-    return victim_key;
+    return victim;
   }
 
   public:
