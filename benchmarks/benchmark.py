@@ -22,6 +22,12 @@ def arguments():
                         help="Path to the C++ benchmark runner")
     parser.add_argument("--levels", nargs="+", type=int, choices=[1, 2, 3], default=[1, 2, 3],
                         help="Level counts to benchmark")
+    hierarchy = parser.add_mutually_exclusive_group()
+    hierarchy.add_argument("--exclusive", action="store_true", default=True,
+                           help="Use an exclusive hierarchy")
+    hierarchy.add_argument("--inclusive", dest="exclusive", action="store_false",
+                           default=argparse.SUPPRESS,
+                           help="Use an inclusive hierarchy instead of exclusive")
     parser.add_argument("--split-2", nargs=2, type=int, default=[1, 3],
                         help="Positive nondecreasing weights for two cache levels")
     parser.add_argument("--split-3", nargs=3, type=int, default=[1, 2, 5],
@@ -59,10 +65,12 @@ def capacities(budget, weights):
     return sizes
 
 
-def run_cache(runner, path, sizes, *, ideal=False):
+def run_cache(runner, path, sizes, *, ideal=False, exclusive=True):
     command = [str(runner), "--trace", str(path), "--capacities", *map(str, sizes)]
     if ideal:
         command.append("--ideal")
+    else:
+        command.append("--exclusive" if exclusive else "--inclusive")
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode:
         raise RuntimeError(f"{path.name}: {result.stderr.strip()}")
@@ -96,7 +104,7 @@ def budgets_by_ratio(universe, step, max_ratio=1):
     return {r: min(maximum, int(r * universe + Decimal("0.5"))) for r in ratios}
 
 
-def benchmark_trace(runner, path, universe, budgets, splits, writer):
+def benchmark_trace(runner, path, universe, budgets, splits, writer, *, exclusive=True):
     curves, log_ratios = defaultdict(list), defaultdict(list)
     for budget in budgets:
         ideal_hits, count = run_cache(runner, path, [budget], ideal=True)["IDEAL"]
@@ -106,7 +114,7 @@ def benchmark_trace(runner, path, universe, budgets, splits, writer):
         curves["IDEAL"].append(ideal_rate)
         for weights in splits:
             sizes = capacities(budget, weights)
-            for name, (hits, requests) in run_cache(runner, path, sizes).items():
+            for name, (hits, requests) in run_cache(runner, path, sizes, exclusive=exclusive).items():
                 if requests != count or not 0 <= hits <= ideal_hits:
                     raise ValueError(f"{path.name}: inconsistent request count or hits exceed IDEAL")
                 rate = 100 * hits / count
@@ -197,6 +205,7 @@ def main():
     trace_log_ratios = defaultdict(list)
     logs_by_ratio = defaultdict(lambda: defaultdict(list))
     print(f"{len(traces)} traces; levels {args.levels}; "
+          f"{'exclusive' if args.exclusive else 'inclusive'} hierarchy; "
           f"ratio step {args.step}, maximum {args.max_ratio}", flush=True)
     with (args.output / "results.csv").open("w", newline="") as stream:
         writer = csv.writer(stream)
@@ -205,7 +214,8 @@ def main():
         for path, universe in traces.items():
             budget_by_ratio = budgets_by_ratio(universe, args.step, args.max_ratio)
             budgets = sorted(set(budget_by_ratio.values()))
-            curves, log_ratios = benchmark_trace(args.runner, path, universe, budgets, splits, writer)
+            curves, log_ratios = benchmark_trace(args.runner, path, universe, budgets, splits, writer,
+                                                exclusive=args.exclusive)
             for name, values in log_ratios.items():
                 trace_log_ratios[name].append(statistics.fmean(values))
                 by_budget = dict(zip(budgets, values))

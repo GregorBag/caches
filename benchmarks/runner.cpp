@@ -7,12 +7,12 @@
 #include <utility>
 #include <vector>
 
-import multi_level_cache;
+import multi_level_inclusive_cache;
+import multi_level_exclusive_cache;
 import ideal_cache;
 
 namespace {
 
-using Cache = caches::multi_level_cache<int>;
 using Type = caches::CacheTypes;
 using Level = std::pair<Type, std::size_t>;
 
@@ -24,12 +24,17 @@ struct Options {
   std::string path;
   std::vector<int> sizes;
   bool ideal = false;
+  bool inclusive = false;
 };
 
 void parse_arguments(CLI::App& app, Options& options, int argc, char** argv) {
   app.add_option("--trace", options.path)->required()->check(CLI::ExistingFile);
   app.add_option("--capacities", options.sizes)->required()->expected(1, 3)->check(CLI::PositiveNumber);
   app.add_flag("--ideal", options.ideal, "Run only IDEAL with one capacity");
+  app.add_flag("--inclusive", options.inclusive, "Use an inclusive hierarchy instead of exclusive")
+      ->excludes("--ideal");
+  app.add_flag("--exclusive", "Use an exclusive hierarchy (default)")
+      ->excludes("--ideal")->excludes("--inclusive");
   app.parse(argc, argv);
   if (options.ideal && options.sizes.size() != 1)
     throw std::invalid_argument("Provide one capacity for IDEAL");
@@ -53,6 +58,7 @@ std::vector<int> read_trace(const std::string& path) {
   return keys;
 }
 
+template <typename Cache>
 Cache make_cache(const std::vector<Level>& levels) {
   switch (levels.size()) {
     case 1: return Cache{levels[0]};
@@ -62,6 +68,7 @@ Cache make_cache(const std::vector<Level>& levels) {
   }
 }
 
+template <typename Cache>
 std::size_t count_hits(Cache& cache, const std::vector<int>& keys) {
   std::size_t hits = 0;
   for (int key : keys)
@@ -73,16 +80,17 @@ void print_result(const std::string& name, std::size_t hits, std::size_t count) 
   std::cout << name << ' ' << hits << ' ' << count << '\n';
 }
 
+template <typename Cache>
 void run_all(const std::vector<int>& keys, const std::vector<int>& sizes,
              std::vector<Level> levels = {}, const std::string& name = "") {
   if (levels.size() == sizes.size()) {
-    auto cache = make_cache(levels);
+    auto cache = make_cache<Cache>(levels);
     print_result(name, count_hits(cache, keys), keys.size());
     return;
   }
   for (const auto& [algorithm, type] : algorithms) {
     levels.emplace_back(type, sizes[levels.size()]);
-    run_all(keys, sizes, levels, name.empty() ? algorithm : name + ">" + algorithm);
+    run_all<Cache>(keys, sizes, levels, name.empty() ? algorithm : name + ">" + algorithm);
     levels.pop_back();
   }
 }
@@ -97,8 +105,10 @@ int main(int argc, char** argv) {
     const auto keys = read_trace(options.path);
     if (options.ideal)
       print_result("IDEAL", caches::ideal_hits_check(options.sizes[0], keys), keys.size());
+    else if (options.inclusive)
+      run_all<caches::multi_level_inclusive_cache<int>>(keys, options.sizes);
     else
-      run_all(keys, options.sizes);
+      run_all<caches::multi_level_exclusive_cache<int>>(keys, options.sizes);
   } catch (const CLI::ParseError& error) {
     return app.exit(error);
   } catch (const std::exception& error) {
