@@ -11,7 +11,7 @@ caches, and an offline IDEAL reference.
 - Ninja 1.11+
 - Git and internet access to fetch GoogleTest (tests) and CLI11 (runner)
   through CPM.cmake
-- Python 3 with `venv` and Matplotlib for the Python benchmark
+- Python 3 with `venv` when `BUILD_BENCHMARKS=ON` (`python3-venv` on Debian/Ubuntu)
 
 ## Build
 
@@ -30,17 +30,14 @@ Build:
 cmake --build build -j2
 ```
 
+With `BUILD_BENCHMARKS=ON`, the build creates `.venv` and installs Matplotlib
+via pip. Setup reruns when `benchmarks/CMakeLists.txt` changes or `.venv` is
+removed.
+
 Run tests:
 
 ```bash
 ctest --test-dir build --output-on-failure
-```
-
-Install Python dependencies once:
-
-```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install -r benchmarks/requirements.txt
 ```
 
 ## Benchmark
@@ -77,14 +74,6 @@ keys, one value per line.
 | `--top N` | `10` | Positive limit on distinct curves and ranking bars; line plots also show IDEAL. |
 | `--output PATH` | `results/benchmark` | Output directory; must not already exist. |
 | `-h`, `--help` | — | Show help and exit. |
-
-Default paths use the repository root; explicit relative paths use the current
-directory. Split weights must be positive, nondecreasing integers.
-
-Ratios include `--max-ratio`. Budget = `ratio * key_space_size`, rounded to the
-nearest integer (halves up) and capped at `floor(max_ratio * key_space_size)`.
-Duplicate budgets run once. Level shares are rounded down; the last gets the
-remainder. Capacities must be nonzero and count resident entries only.
 
 ### Output
 

@@ -5,7 +5,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(BUILD_TESTS "Build tests" ON)
-option(BUILD_BENCHMARKS "Build the cache benchmark runner" OFF)
+option(BUILD_BENCHMARKS "Build benchmarks and install their Python dependencies" OFF)
 
 include(cmake/CPM.cmake)
 include(cmake/packages.cmake)
