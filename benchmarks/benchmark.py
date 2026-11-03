@@ -166,7 +166,8 @@ def save_ranking(plt, trace_log_ratios, output, top):
             previous = score
     best = ranking[:top]
     fig, ax = plt.subplots(figsize=(9, max(3, len(best) * 0.4)))
-    ax.barh([name for name, _ in best], [score for _, score in best])
+    bars = ax.barh([name for name, _ in best], [score for _, score in best])
+    ax.bar_label(bars, fmt="%.3f", padding=3)
     ax.invert_yaxis()
     ax.set(xlabel="Geometric score (100 = IDEAL)", xlim=(0, 100), title="Best strategies")
     fig.tight_layout()
