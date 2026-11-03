@@ -4,16 +4,16 @@
 import abstract_cache;
 import lirs_cache;
 import lru_cache;
-import multi_level_cache;
+import multi_level_inclusive_cache;
 
 namespace {
 
 using Level = caches::abstract_cache<int>;
 using caches::CacheTypes;
 
-TEST(MultiLevelCacheTest, EmptyHierarchyDoesNotLoad)
+TEST(MultiLevelInclusiveCacheTest, EmptyHierarchyDoesNotLoad)
 {
-    caches::multi_level_cache<int> cache({});
+    caches::multi_level_inclusive_cache<int> cache({});
     Level& base = cache;
     int loads = 0;
     EXPECT_EQ(base.capacity(), 0u);
@@ -25,9 +25,9 @@ TEST(MultiLevelCacheTest, EmptyHierarchyDoesNotLoad)
     EXPECT_EQ(loads, 0);
 }
 
-TEST(MultiLevelCacheTest, BaseInterfacePreservesPeekTouchAndInvalidationSemantics)
+TEST(MultiLevelInclusiveCacheTest, BaseInterfacePreservesPeekTouchAndInvalidationSemantics)
 {
-    caches::multi_level_cache<int> cache({{CacheTypes::LRU, 1}, {CacheTypes::LRU, 3}});
+    caches::multi_level_inclusive_cache<int> cache({{CacheTypes::LRU, 1}, {CacheTypes::LRU, 3}});
     Level& base = cache;
     auto load = [](int key) { return key * 10; };
 
@@ -54,47 +54,47 @@ TEST(MultiLevelCacheTest, BaseInterfacePreservesPeekTouchAndInvalidationSemantic
     EXPECT_TRUE(base.full());
 }
 
-TEST(MultiLevelCacheTest, RejectsZeroCapacityLevels)
+TEST(MultiLevelInclusiveCacheTest, RejectsZeroCapacityLevels)
 {
-    EXPECT_THROW((caches::multi_level_cache<int>{
+    EXPECT_THROW((caches::multi_level_inclusive_cache<int>{
         {CacheTypes::LRU, 2}, {CacheTypes::LRU, 0}, {CacheTypes::LRU, 4}}),
         std::invalid_argument);
 }
 
-TEST(MultiLevelCacheTest, RejectsDecreasingCapacities)
+TEST(MultiLevelInclusiveCacheTest, RejectsDecreasingCapacities)
 {
-    EXPECT_THROW((caches::multi_level_cache<int>{
+    EXPECT_THROW((caches::multi_level_inclusive_cache<int>{
         {CacheTypes::LRU, 3}, {CacheTypes::LRU, 2}}), std::invalid_argument);
-    EXPECT_THROW((caches::multi_level_cache<int>{
+    EXPECT_THROW((caches::multi_level_inclusive_cache<int>{
         {CacheTypes::LRU, 2}, {CacheTypes::LRU, 4}, {CacheTypes::LRU, 3}}),
         std::invalid_argument);
-    EXPECT_THROW((caches::multi_level_cache<int>{
+    EXPECT_THROW((caches::multi_level_inclusive_cache<int>{
         {CacheTypes::LRU, 4}, {CacheTypes::LRU, 2}, {CacheTypes::LRU, 8}}),
         std::invalid_argument);
 }
 
-TEST(MultiLevelCacheTest, AcceptsNondecreasingCapacities)
+TEST(MultiLevelInclusiveCacheTest, AcceptsNondecreasingCapacities)
 {
-    EXPECT_NO_THROW((caches::multi_level_cache<int>{
+    EXPECT_NO_THROW((caches::multi_level_inclusive_cache<int>{
         {CacheTypes::LRU, 2}, {CacheTypes::LRU, 3}, {CacheTypes::LRU, 4}}));
-    EXPECT_NO_THROW((caches::multi_level_cache<int>{
+    EXPECT_NO_THROW((caches::multi_level_inclusive_cache<int>{
         {CacheTypes::LRU, 2}, {CacheTypes::LRU, 2}, {CacheTypes::LRU, 2}}));
-    EXPECT_NO_THROW((caches::multi_level_cache<int>{
+    EXPECT_NO_THROW((caches::multi_level_inclusive_cache<int>{
         {CacheTypes::LRU, 2}, {CacheTypes::LRU, 2}, {CacheTypes::LRU, 4}}));
 }
 
-TEST(MultiLevelCacheTest, SingleLevelMatchesStandaloneCache)
+TEST(MultiLevelInclusiveCacheTest, SingleLevelMatchesStandaloneCache)
 {
-    caches::multi_level_cache<int> cache({{CacheTypes::LRU, 2}});
+    caches::multi_level_inclusive_cache<int> cache({{CacheTypes::LRU, 2}});
     caches::lru_cache<int> standalone(2);
     auto load = [](int key) { return key * 10; };
     for (int key : {1, 2, 1, 3, 2, 3, 4, 4, 1})
         EXPECT_EQ(cache.lookup_update(key, load), standalone.lookup_update(key, load));
 }
 
-TEST(MultiLevelCacheTest, LoadsOnceForHitsFromMiddleAndDeepestLevels)
+TEST(MultiLevelInclusiveCacheTest, LoadsOnceForHitsFromMiddleAndDeepestLevels)
 {
-    caches::multi_level_cache<int> cache({
+    caches::multi_level_inclusive_cache<int> cache({
         {CacheTypes::LRU, 1}, {CacheTypes::LRU, 2}, {CacheTypes::LRU, 3}});
     int loads = 0;
     auto load = [&](int key) { ++loads; return key * 10; };
@@ -117,9 +117,9 @@ TEST(MultiLevelCacheTest, LoadsOnceForHitsFromMiddleAndDeepestLevels)
     EXPECT_EQ(loads, 3);
 }
 
-TEST(MultiLevelCacheTest, MiddleEvictionPreservesBelow)
+TEST(MultiLevelInclusiveCacheTest, MiddleEvictionPreservesBelow)
 {
-    caches::multi_level_cache<int> cache({
+    caches::multi_level_inclusive_cache<int> cache({
         {CacheTypes::LRU, 2}, {CacheTypes::TWO_QUEUE, 3}, {CacheTypes::LRU, 4}});
     // 2Q leaves hits in A1in in FIFO order, even when L1 keeps the key hot.
     auto load = [](int key) { return key; };
@@ -132,9 +132,9 @@ TEST(MultiLevelCacheTest, MiddleEvictionPreservesBelow)
     EXPECT_NE(cache.peek(4), nullptr);
 }
 
-TEST(MultiLevelCacheTest, DeepestEvictionInvalidatesAllUpperCopies)
+TEST(MultiLevelInclusiveCacheTest, DeepestEvictionInvalidatesAllUpperCopies)
 {
-    caches::multi_level_cache<int> cache({
+    caches::multi_level_inclusive_cache<int> cache({
         {CacheTypes::LRU, 2}, {CacheTypes::LRU, 4}, {CacheTypes::TWO_QUEUE, 4}});
     auto load = [](int key) { return key; };
 
@@ -146,9 +146,9 @@ TEST(MultiLevelCacheTest, DeepestEvictionInvalidatesAllUpperCopies)
     EXPECT_EQ(*cache.peek(5), 5);
 }
 
-TEST(MultiLevelCacheTest, L1HitRefreshesEveryLevel)
+TEST(MultiLevelInclusiveCacheTest, L1HitRefreshesEveryLevel)
 {
-    caches::multi_level_cache<int> cache({
+    caches::multi_level_inclusive_cache<int> cache({
         {CacheTypes::LRU, 2}, {CacheTypes::LRU, 2}, {CacheTypes::LRU, 2}});
     auto load = [](int key) { return key; };
 
@@ -162,9 +162,9 @@ TEST(MultiLevelCacheTest, L1HitRefreshesEveryLevel)
     EXPECT_NE(cache.peek(3), nullptr);
 }
 
-TEST(MultiLevelCacheTest, MiddleHitRefreshesLowerLevels)
+TEST(MultiLevelInclusiveCacheTest, MiddleHitRefreshesLowerLevels)
 {
-    caches::multi_level_cache<int> cache({
+    caches::multi_level_inclusive_cache<int> cache({
         {CacheTypes::LRU, 1}, {CacheTypes::LRU, 2}, {CacheTypes::LRU, 2}});
     auto load = [](int key) { return key; };
 
@@ -178,9 +178,9 @@ TEST(MultiLevelCacheTest, MiddleHitRefreshesLowerLevels)
     EXPECT_NE(cache.peek(3), nullptr);
 }
 
-TEST(MultiLevelCacheTest, MixedPoliciesMatchDeepestCacheAndPreserveValues)
+TEST(MultiLevelInclusiveCacheTest, MixedPoliciesMatchDeepestCacheAndPreserveValues)
 {
-    caches::multi_level_cache<int> cache({
+    caches::multi_level_inclusive_cache<int> cache({
         {CacheTypes::LRU, 2}, {CacheTypes::LFU, 3}, {CacheTypes::TWO_QUEUE, 4},
         {CacheTypes::ARC, 5}, {CacheTypes::LIRS, 6}});
     // The constructor owns the levels; compare with a standalone deepest-level cache.

@@ -17,11 +17,13 @@ target_sources(caches
     FILES
       source/abstract_cache.cppm
       source/arc_cache.cppm
+      source/cache_levels.cppm
       source/ideal_cache.cppm
       source/lfu_cache.cppm
       source/lirs_cache.cppm
       source/lru_cache.cppm
-      source/multi_level_cache.cppm
+      source/multi_level_exclusive_cache.cppm
+      source/multi_level_inclusive_cache.cppm
       source/two_queue_cache.cppm
 )
 target_compile_features(caches PUBLIC cxx_std_23)
