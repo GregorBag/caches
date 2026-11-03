@@ -1,7 +1,5 @@
 /build/
 /.vscode/
-/cache-tests/
-CACHE_TESTS.md
 /results/
 /.venv/
 __pycache__/
