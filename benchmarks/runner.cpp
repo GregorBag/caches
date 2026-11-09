@@ -28,7 +28,7 @@ struct Options {
 };
 
 void parse_arguments(CLI::App& app, Options& options, int argc, char** argv) {
-  app.add_option("--trace", options.path)->required()->check(CLI::ExistingFile);
+  app.add_option("--trace", options.path, "Trace file, or - to read stdin")->required();
   app.add_option("--capacities", options.sizes)->required()->expected(1, 3)->check(CLI::PositiveNumber);
   app.add_flag("--ideal", options.ideal, "Run only IDEAL with one capacity");
   app.add_flag("--inclusive", options.inclusive, "Use an inclusive hierarchy instead of exclusive")
@@ -42,14 +42,16 @@ void parse_arguments(CLI::App& app, Options& options, int argc, char** argv) {
     throw std::invalid_argument("Capacities must be nondecreasing");
 }
 
-std::vector<int> read_trace(const std::string& path) {
-  std::ifstream input(path);
+std::vector<int> read_trace(std::istream& input) {
   int universe_size, count;
   if (!(input >> universe_size >> count) || universe_size <= 0 || count <= 0)
     throw std::invalid_argument("Trace must begin with positive universe size and request count");
   std::vector<int> keys;
+  keys.reserve(count);
   for (int i = 0, key; i < count; ++i) {
     if (!(input >> key)) throw std::invalid_argument("Missing or invalid trace key");
+    if (key < 1 || key > universe_size)
+      throw std::invalid_argument("Trace key outside declared universe");
     keys.push_back(key);
   }
   input >> std::ws;
@@ -98,11 +100,18 @@ void run_all(const std::vector<int>& keys, const std::vector<int>& sizes,
 }  // namespace
 
 int main(int argc, char** argv) {
+  std::ios::sync_with_stdio(false);
+  std::cin.tie(nullptr);
   Options options;
   CLI::App app{"Run all algorithm combinations; print strategy, hits and request count"};
   try {
     parse_arguments(app, options, argc, argv);
-    const auto keys = read_trace(options.path);
+    std::ifstream file;
+    if (options.path != "-") {
+      file.open(options.path);
+      if (!file) throw std::invalid_argument("Cannot open trace: " + options.path);
+    }
+    const auto keys = read_trace(options.path == "-" ? std::cin : file);
     if (options.ideal)
       print_result("IDEAL", caches::ideal_hits_check(options.sizes[0], keys), keys.size());
     else if (options.inclusive)
