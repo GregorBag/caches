@@ -22,6 +22,7 @@ class lirs_cache final : public abstract_cache<Value, Key>
   const std::size_t capacity_;
   const std::size_t hir_capacity_;
   const std::size_t lir_capacity_;
+  const std::size_t stack_limit_;
   
   std::size_t lir_size_ = 0;
   std::size_t hir_size_ = 0;
@@ -104,6 +105,22 @@ class lirs_cache final : public abstract_cache<Value, Key>
     }
   }
 
+  void trim_stack_to_limit()
+  {
+    auto it = S_.end();
+
+    while (S_.size() > stack_limit_ && it != S_.begin())
+    {
+      --it;
+      auto entry = S_map_.find(*it);
+
+      if (entry->second.kind == Kind::HIR) {
+        S_map_.erase(entry);
+        it = S_.erase(it);
+      }
+    }
+  }
+
   void demote_oldest_lir() 
   {
     Key victim_key = S_.back();
@@ -126,12 +143,14 @@ class lirs_cache final : public abstract_cache<Value, Key>
       queue_push_back(key, std::make_unique<Value>(value));
       S_.push_front(key);
       S_map_.emplace(key, SEntry{nullptr, Kind::HIR, true, S_.begin()});
+      trim_stack_to_limit();
 
       return victim;
     } 
 
     S_.push_front(key);
     S_map_.emplace(key, SEntry{std::make_unique<Value>(value), Kind::LIR, true, S_.begin()});
+    trim_stack_to_limit();
 
     lir_size_++;
     return victim;
@@ -163,7 +182,8 @@ class lirs_cache final : public abstract_cache<Value, Key>
   explicit lirs_cache(std::size_t capacity): 
     capacity_(capacity), 
     hir_capacity_(capacity == 0 ? 0 : std::max<std::size_t>(1, capacity / 100)),
-    lir_capacity_(capacity_ - hir_capacity_) {}
+    lir_capacity_(capacity_ - hir_capacity_),
+    stack_limit_(capacity * 5) {}
 
   bool full() const override { return ((lir_size_ + hir_size_) == capacity_); }
   std::size_t capacity() const override { return capacity_; }
@@ -222,6 +242,7 @@ class lirs_cache final : public abstract_cache<Value, Key>
       S_.push_front(key);
       S_map_.emplace(key, SEntry{nullptr, Kind::HIR, true, S_.begin()});
       prune_stack();
+      trim_stack_to_limit();
       return;
     }
   }
