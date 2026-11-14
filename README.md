@@ -49,10 +49,13 @@ strategies for 1, 2, or 3 levels. IDEAL uses one cache with the same total budge
 Exclusive hierarchies are the default. With `--inclusive`, total hit rate
 depends on the last level.
 
-[50 synthetic traces](benchmarks/traces/README.md) are included, each with a
-key space of 4,096 keys and 8,192 requests.
-Trace format: positive key-space size, positive request count, then the integer
-keys, one value per line.
+[30 synthetic workloads](benchmarks/README.md) are generated on each run,
+with **100,000 possible keys and 200,000 requests** per trace by default.
+Each trace is generated once in memory and sent through stdin to every runner
+invocation, so all policies, capacities and IDEAL receive identical requests.
+Generation is deterministic for the scenario name, generator/Python versions and sizes.
+Independent cache budgets run concurrently; `--jobs` limits the number of C++ processes.
+Working-set sizes and phase lengths scale with the requested sizes.
 
 ```bash
 .venv/bin/python benchmarks/benchmark.py \
@@ -62,8 +65,11 @@ keys, one value per line.
 
 | Argument | Default | Description |
 | --- | --- | --- |
-| `--data-dir PATH` | `benchmarks/traces` | Input trace directory. |
-| `--pattern GLOB` | `*.txt` | Trace filename filter; quote patterns, e.g. `'16_*'`. |
+| `--universe-size N` | `1000000` | Number of possible keys. |
+| `--requests N` | `2 * universe size` | Requests per generated trace. |
+| `--jobs N` | Up to 8 CPUs | Maximum concurrent C++ runners; `1` runs sequentially. |
+| `--list-traces` | Off | List matching trace names and exit. |
+| `--pattern GLOB` | `*` | Scenario name filter; quote patterns, e.g. `'16_*'` (no `.txt` suffix). |
 | `--runner PATH` | `build/benchmarks/cache_bench_runner` | C++ runner executable. |
 | `--levels N [N ...]` | `1 2 3` | Level counts: 1, 2, or 3. |
 | `--exclusive` | On | Use an exclusive hierarchy. |
@@ -78,6 +84,7 @@ keys, one value per line.
 
 ### Output
 
+- `manifest.json`: generator/Python versions, sizes, configurations, worker limit and trace hashes.
 - `results.csv`: all measurements and IDEAL hit rates.
 - `<trace>.png`: hit rate (%) against actual budget / key-space size.
 - `ranking.csv` and `ranking.png`: overall strategy scores.
@@ -85,7 +92,11 @@ keys, one value per line.
   each requested ratio.
 
 Line plots select the highest mean curves and show identical curves once.
-CSV files keep all strategies.
+CSV files keep all strategies. The manifest hashes the exact generated input,
+so separate runs can be checked for matching data. Trace files are not saved.
+CSV rows and rankings keep a stable order regardless of worker completion order.
+The worker limit defaults to `min(8, CPU count)` and cannot exceed the number of
+budgets in a trace. Each concurrent runner has its own cache memory.
 
 ### Score
 
@@ -108,20 +119,25 @@ Prints `strategy hits requests` per combination. Policy names run from L1
 downwards, e.g. `lru>arc`.
 
 ```bash
-./build/benchmarks/cache_bench_runner \
-  --trace benchmarks/traces/10_database_mixed.txt --capacities 64 192
+python3 benchmarks/generate_traces.py --trace 09_database_mixed \
+  --universe-size 4096 --requests 8192 | \
+  ./build/benchmarks/cache_bench_runner --trace - --capacities 64 192
 ```
 
 | Argument | Description |
 | --- | --- |
-| `--trace PATH` | Required trace file in the format above. |
+| `--trace PATH` | Required: `-` for stdin, or an external trace file. |
 | `--capacities N [N ...]` | Required: 1–3 positive, nondecreasing integer capacities, from L1 downwards. |
 | `--ideal` | Run only IDEAL; requires exactly one capacity. |
 | `--exclusive` | Use an exclusive hierarchy (default). |
 | `--inclusive` | Use an inclusive hierarchy. |
 | `-h`, `--help` | Show help and exit. |
 
-`--ideal`, `--exclusive`, and `--inclusive` are mutually exclusive.
+Input format: positive key-space size, positive request count, then integer
+keys in `1..key-space size`, one value per line. Missing, extra or out-of-range
+requests are rejected. `--ideal`, `--exclusive`, and `--inclusive` are mutually
+exclusive. IDEAL precomputes next uses and maintains an ordered set of resident
+next-use positions, taking O(requests × log(capacity + 1)) time after preprocessing.
 
 ## Research
 
@@ -130,24 +146,24 @@ their total hit rate equals that of a standalone cache with the last level's
 policy and capacity: upper-level entries are also present in the last level,
 and every request updates that level.
 
-The results use the current [50-trace dataset](benchmarks/traces/README.md),
-with 4,096 keys and 8,192 requests per trace. Total cache budgets range from
-0.5% to 30% of the key space in steps of 0.5 percentage points: 60 points per
-trace.
+The results use the 30 [synthetic workloads](benchmarks/README.md), with
+**100,000 keys and 200,000 requests** per trace. Total cache budgets range from
+1% to 30% of the key space in steps of 1 percentage point: 30 points per
+trace (1,000 to 30,000 entries).
 
 The initial decline in **Rating by ratio** comes from comparison with IDEAL.
 Hit rates generally rise with capacity, but the score falls when IDEAL reduces
-its misses faster proportionally. For example, from a 0.5% to a 5.5% budget,
-ARC's mean hit rate across traces rises from **12.5% to 36.3%**, while its
-score falls from **84.4 to 71.8**. The best overall strategies for one,
-two, and three levels all reach their sampled minimum at **5.5%** (225 entries).
-Across all 155 strategies, minima range from 5% to 10%.
+its misses faster proportionally. For example, from a 1% to a 5% budget,
+ARC's mean hit rate across traces rises from **21.5% to 38.2%**, while its
+score falls from **79.7 to 71.8**. The best overall strategies for one,
+two, and three levels all reach their sampled minimum at **5%** (5,000 entries).
+Across all 155 strategies, minima range from 5% to 11%.
 
 ### All strategies
 
 Among all 155 configurations, single-level ARC has the highest overall score
-(**75.378**), ahead of the best two-level (**73.681**) and three-level
-(**73.207**) strategies. ARC also leads the per-ratio ranking at all 60 sampled ratios. 
+(**75.283**), ahead of the best two-level (**74.001**) and three-level
+(**73.723**) strategies. ARC also leads the per-ratio ranking at all 30 sampled ratios.
 
 ARC is the best overall choice, but the best strategy for a specific case may
 vary with the access pattern, cache budget, number of levels, and capacity split.
@@ -155,7 +171,7 @@ vary with the access pattern, cache budget, number of levels, and capacity split
 Each figure group below shows the overall ranking at the top left and the score
 versus cache/data ratio at the top right. The two hit-rate plots below are just
 examples, with no special significance attached to the choice of traces.
-The rankings use all 50 traces.
+The rankings use all 30 traces.
 
 <table>
   <tr>
@@ -170,12 +186,12 @@ The rankings use all 50 traces.
   </tr>
   <tr>
     <td width="50%" align="center" valign="top">
-      <strong>Trace 12: Alternating hot regions</strong><br>
-      <a href="assets/all/12_alternating_hot_regions.png"><img src="assets/all/12_alternating_hot_regions.png" alt="all: Trace 12: Alternating hot regions" width="100%"></a>
+      <strong>Trace 17: Periodic hot-set load</strong><br>
+      <a href="assets/all/17_periodic_hot_set_load.png"><img src="assets/all/17_periodic_hot_set_load.png" alt="all: Trace 17: Periodic hot-set load" width="100%"></a>
     </td>
     <td width="50%" align="center" valign="top">
-      <strong>Trace 18: Web sessions with noise</strong><br>
-      <a href="assets/all/18_web_sessions_with_noise.png"><img src="assets/all/18_web_sessions_with_noise.png" alt="all: Trace 18: Web sessions with noise" width="100%"></a>
+      <strong>Trace 23: Variable-length sessions</strong><br>
+      <a href="assets/all/23_variable_length_sessions.png"><img src="assets/all/23_variable_length_sessions.png" alt="all: Trace 23: Variable-length sessions" width="100%"></a>
     </td>
   </tr>
 </table>
@@ -195,12 +211,12 @@ The rankings use all 50 traces.
   </tr>
   <tr>
     <td width="50%" align="center" valign="top">
-      <strong>Trace 12: Alternating hot regions</strong><br>
-      <a href="assets/one/12_alternating_hot_regions.png"><img src="assets/one/12_alternating_hot_regions.png" alt="one: Trace 12: Alternating hot regions" width="100%"></a>
+      <strong>Trace 28: Overlapping working sets</strong><br>
+      <a href="assets/one/28_overlapping_working_sets.png"><img src="assets/one/28_overlapping_working_sets.png" alt="one: Trace 28: Overlapping working sets" width="100%"></a>
     </td>
     <td width="50%" align="center" valign="top">
-      <strong>Trace 15: Returning working sets</strong><br>
-      <a href="assets/one/15_returning_working_sets.png"><img src="assets/one/15_returning_working_sets.png" alt="one: Trace 15: Returning working sets" width="100%"></a>
+      <strong>Trace 12: Returning working sets</strong><br>
+      <a href="assets/one/12_returning_working_sets.png"><img src="assets/one/12_returning_working_sets.png" alt="one: Trace 12: Returning working sets" width="100%"></a>
     </td>
   </tr>
 </table>
@@ -222,19 +238,19 @@ The 25 combinations use a **1:3** capacity split.
   </tr>
   <tr>
     <td width="50%" align="center" valign="top">
-      <strong>Trace 8: Rotating working set</strong><br>
-      <a href="assets/two/08_rotating_working_set.png"><img src="assets/two/08_rotating_working_set.png" alt="two: Trace 8: Rotating working set" width="100%"></a>
+      <strong>Trace 27: Gradual hot-set turnover</strong><br>
+      <a href="assets/two/27_gradual_hot_set_turnover.png"><img src="assets/two/27_gradual_hot_set_turnover.png" alt="two: Trace 27: Gradual hot-set turnover" width="100%"></a>
     </td>
     <td width="50%" align="center" valign="top">
-      <strong>Trace 13: Drifting popularity</strong><br>
-      <a href="assets/two/13_drifting_popularity.png"><img src="assets/two/13_drifting_popularity.png" alt="two: Trace 13: Drifting popularity" width="100%"></a>
+      <strong>Trace 12: Returning working sets</strong><br>
+      <a href="assets/two/12_returning_working_sets.png"><img src="assets/two/12_returning_working_sets.png" alt="two: Trace 12: Returning working sets" width="100%"></a>
     </td>
   </tr>
 </table>
 
 ### Three-level strategies
 
-The 125 combinations use a **1:3:5** capacity split.
+The 125 combinations use a **1:2:5** capacity split.
 
 <table>
   <tr>
@@ -249,12 +265,12 @@ The 125 combinations use a **1:3:5** capacity split.
   </tr>
   <tr>
     <td width="50%" align="center" valign="top">
-      <strong>Trace 15: Returning working sets</strong><br>
-      <a href="assets/three/15_returning_working_sets.png"><img src="assets/three/15_returning_working_sets.png" alt="three: Trace 15: Returning working sets" width="100%"></a>
+      <strong>Trace 12: Returning working sets</strong><br>
+      <a href="assets/three/12_returning_working_sets.png"><img src="assets/three/12_returning_working_sets.png" alt="three: Trace 12: Returning working sets" width="100%"></a>
     </td>
     <td width="50%" align="center" valign="top">
-      <strong>Trace 13: Drifting popularity</strong><br>
-      <a href="assets/three/13_drifting_popularity.png"><img src="assets/three/13_drifting_popularity.png" alt="three: Trace 13: Drifting popularity" width="100%"></a>
+      <strong>Trace 16: Delayed history reuse</strong><br>
+      <a href="assets/three/16_delayed_history_reuse.png"><img src="assets/three/16_delayed_history_reuse.png" alt="three: Trace 16: Delayed history reuse" width="100%"></a>
     </td>
   </tr>
 </table>
